@@ -1,0 +1,57 @@
+{
+  "expo": {
+    "name": "NED Transport Hub",
+    "slug": "ned-transport-hub",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#142c5c"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "pk.edu.neduet.transporthub",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "NED Transport Hub uses your location to set pickup points, match nearby campus rides, share live trip location, and send emergency SOS coordinates.",
+        "NSCameraUsageDescription": "NED Transport Hub uses the camera to capture driver verification documents (licence, vehicle registration, and NED ID).",
+        "NSPhotoLibraryUsageDescription": "NED Transport Hub accesses your photos to upload driver verification documents."
+      }
+    },
+    "android": {
+      "package": "pk.edu.neduet.transporthub",
+      "adaptiveIcon": {
+        "backgroundColor": "#142c5c",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE"
+      ],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow NED Transport Hub to use your location for ride matching, live tracking, and SOS alerts."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow NED Transport Hub to select driver verification documents from your photo library.",
+          "cameraPermission": "Allow NED Transport Hub to photograph driver verification documents."
+        }
+      ]
+    ]
+  }
+}
