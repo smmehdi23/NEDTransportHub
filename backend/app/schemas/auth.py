@@ -39,7 +39,7 @@ class RegisterRequest(BaseModel):
     def _email_domain(cls, v: str) -> str:
         v = v.lower()
         if v.rsplit("@", 1)[1] not in settings.email_domains:
-            raise ValueError("Only official NED University email addresses are allowed.")
+            raise ValueError("Only @cloud.neduet.edu.pk email addresses are allowed to register.")
         return v
 
     @field_validator("password")

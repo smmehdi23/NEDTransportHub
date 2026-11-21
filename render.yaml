@@ -17,7 +17,7 @@ services:
       - key: CORS_ORIGINS
         value: "*"
       - key: ALLOWED_EMAIL_DOMAINS
-        value: "cloud.neduet.edu.pk,neduet.edu.pk,gmail.com"
+        value: "cloud.neduet.edu.pk"
       - key: PUBLIC_BASE_URL
         value: "https://ned-transport-hub-api.onrender.com"
       - key: FIRST_ADMIN_EMAIL

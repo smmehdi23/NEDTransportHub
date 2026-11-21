@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     otp_max_attempts: int = 5
     otp_resend_cooldown_seconds: int = 60
 
-    allowed_email_domains: str = "cloud.neduet.edu.pk,neduet.edu.pk"
+    allowed_email_domains: str = "cloud.neduet.edu.pk"
     cors_origins: str = "*"
 
     smtp_host: str = ""

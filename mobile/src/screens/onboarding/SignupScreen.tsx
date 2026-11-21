@@ -24,8 +24,13 @@ export function SignupScreen({ navigation }: Props) {
   const passwordValid = hasLen && hasUpper && hasLower && hasDigit;
 
   const handleRegister = async () => {
-    if (!name.trim() || !email.trim() || !password) {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!name.trim() || !normalizedEmail || !password) {
       setError('Please complete all required fields.');
+      return;
+    }
+    if (!normalizedEmail.endsWith('@cloud.neduet.edu.pk')) {
+      setError('Only @cloud.neduet.edu.pk email addresses can register.');
       return;
     }
     if (!passwordValid) {
@@ -35,7 +40,6 @@ export function SignupScreen({ navigation }: Props) {
     setError(null);
     setLoading(true);
     try {
-      const normalizedEmail = email.trim().toLowerCase();
       await authApi.register({
         name: name.trim(),
         email: normalizedEmail,
@@ -78,6 +82,7 @@ export function SignupScreen({ navigation }: Props) {
           placeholder="name@cloud.neduet.edu.pk"
           keyboardType="email-address"
           autoCapitalize="none"
+          helper="Only @cloud.neduet.edu.pk emails are allowed"
         />
 
         <Field
