@@ -62,8 +62,19 @@ export function ChatScreen({ navigation, route }: Props) {
       wsRef.current = ws;
     })();
 
+    const poll = setInterval(() => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) return;
+      chatApi
+        .getMessages(bookingId)
+        .then((hist) => {
+          if (active) setMessages(hist);
+        })
+        .catch(() => null);
+    }, 4000);
+
     return () => {
       active = false;
+      clearInterval(poll);
       wsRef.current?.close();
     };
   }, [bookingId]);

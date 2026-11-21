@@ -1,0 +1,4 @@
+-r requirements.txt
+firebase-admin>=6.5
+pytest>=8.0
+httpx>=0.27

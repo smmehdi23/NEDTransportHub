@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     smtp_from_email: str = ""
     smtp_from_name: str = "NED Transport Hub"
 
-    upload_dir: str = "uploads"
+    upload_dir: str = "/tmp/uploads" if os.getenv("VERCEL") else "uploads"
     max_upload_mb: int = 5
 
     # ---- Member 2: maps, matching, fares, payments, notifications ----
@@ -78,7 +78,7 @@ class Settings(BaseSettings):
     night_start_hour: int = Field(20, ge=0, le=23)
     night_end_hour: int = Field(6, ge=0, le=23)
     campus_utc_offset_hours: float = 5.0   # Pakistan Standard Time (no daylight saving)
-    reminders_enabled: bool = True
+    reminders_enabled: bool = not bool(os.getenv("VERCEL"))
     reminder_minutes_before: int = 30
     share_link_hours: int = 24
     public_base_url: str = "http://localhost:8000"
