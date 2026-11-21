@@ -11,22 +11,43 @@ async function setSecure(key: string, value: string): Promise<void> {
     await AsyncStorage.setItem(key, value);
     return;
   }
-  await SecureStore.setItemAsync(key, value);
+  try {
+    await SecureStore.setItemAsync(key, value);
+  } catch {
+    await AsyncStorage.setItem(key, value);
+  }
 }
 
 async function getSecure(key: string): Promise<string | null> {
   if (Platform.OS === 'web') {
     return AsyncStorage.getItem(key);
   }
-  return SecureStore.getItemAsync(key);
+  try {
+    const val = await SecureStore.getItemAsync(key);
+    if (val !== null) return val;
+  } catch {
+    // Fallback to AsyncStorage if Android KeyStore is unavailable
+  }
+  try {
+    return await AsyncStorage.getItem(key);
+  } catch {
+    return null;
+  }
 }
 
 async function deleteSecure(key: string): Promise<void> {
-  if (Platform.OS === 'web') {
-    await AsyncStorage.removeItem(key);
-    return;
+  if (Platform.OS !== 'web') {
+    try {
+      await SecureStore.deleteItemAsync(key);
+    } catch {
+      // ignore
+    }
   }
-  await SecureStore.deleteItemAsync(key);
+  try {
+    await AsyncStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
 }
 
 export const tokenStorage = {
@@ -63,12 +84,16 @@ export interface CachedBookingSnapshot {
 
 export const offlineCache = {
   async saveLastBooking(snapshot: CachedBookingSnapshot): Promise<void> {
-    await AsyncStorage.setItem(OFFLINE_BOOKING_KEY, JSON.stringify(snapshot));
+    try {
+      await AsyncStorage.setItem(OFFLINE_BOOKING_KEY, JSON.stringify(snapshot));
+    } catch {
+      // ignore cache write failure
+    }
   },
   async getLastBooking(): Promise<CachedBookingSnapshot | null> {
-    const raw = await AsyncStorage.getItem(OFFLINE_BOOKING_KEY);
-    if (!raw) return null;
     try {
+      const raw = await AsyncStorage.getItem(OFFLINE_BOOKING_KEY);
+      if (!raw) return null;
       return JSON.parse(raw) as CachedBookingSnapshot;
     } catch {
       return null;

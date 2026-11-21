@@ -49,11 +49,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const unsub = NetInfo.addEventListener((state) => {
-      const offline = state.isConnected === false || state.isInternetReachable === false;
-      setIsOffline(offline);
-    });
-    return () => unsub();
+    let unsub: (() => void) | undefined;
+    try {
+      unsub = NetInfo.addEventListener((state) => {
+        const offline = state.isConnected === false || state.isInternetReachable === false;
+        setIsOffline(offline);
+      });
+    } catch {
+      // ignore if NetInfo native module unavailable
+    }
+    return () => {
+      try {
+        unsub?.();
+      } catch {
+        // ignore
+      }
+    };
   }, []);
 
   useEffect(() => {

@@ -16,10 +16,128 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Rect } from 'react-native-svg';
-import * as Icons from 'lucide-react-native';
+import {
+  ArrowRight,
+  BadgeCheck,
+  Banknote,
+  Bell,
+  Bike,
+  Car,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  CircleAlert,
+  CircleCheck,
+  CircleHelp,
+  Clock,
+  CreditCard,
+  FileText,
+  GraduationCap,
+  Headset,
+  Heart,
+  House,
+  IdCard,
+  KeyRound,
+  LocateFixed,
+  Lock,
+  LogOut,
+  Mail,
+  MailCheck,
+  Map,
+  MapPin,
+  Megaphone,
+  MessageCircle,
+  MessageSquare,
+  Minus,
+  Navigation,
+  Phone,
+  Play,
+  Plus,
+  Radio,
+  RefreshCw,
+  Search,
+  SearchX,
+  Send,
+  Share2,
+  ShieldCheck,
+  Siren,
+  SlidersHorizontal,
+  Smartphone,
+  Split,
+  Star,
+  Trash2,
+  TriangleAlert,
+  Undo2,
+  Upload,
+  User,
+  Users,
+  Wallet,
+  WifiOff,
+  X,
+} from 'lucide-react-native';
 import { colors, radii, shadows } from '../theme';
 
-export type IconName = keyof typeof Icons;
+const ICONS = {
+  ArrowRight,
+  BadgeCheck,
+  Banknote,
+  Bell,
+  Bike,
+  Car,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  CircleAlert,
+  CircleCheck,
+  CircleHelp,
+  Clock,
+  CreditCard,
+  FileText,
+  GraduationCap,
+  Headset,
+  Heart,
+  House,
+  IdCard,
+  KeyRound,
+  LocateFixed,
+  Lock,
+  LogOut,
+  Mail,
+  MailCheck,
+  Map,
+  MapPin,
+  Megaphone,
+  MessageCircle,
+  MessageSquare,
+  Minus,
+  Navigation,
+  Phone,
+  Play,
+  Plus,
+  Radio,
+  RefreshCw,
+  Search,
+  SearchX,
+  Send,
+  Share2,
+  ShieldCheck,
+  Siren,
+  SlidersHorizontal,
+  Smartphone,
+  Split,
+  Star,
+  Trash2,
+  TriangleAlert,
+  Undo2,
+  Upload,
+  User,
+  Users,
+  Wallet,
+  WifiOff,
+  X,
+} as const;
+
+export type IconName = keyof typeof ICONS;
 
 export function Icon({
   name,
@@ -32,14 +150,14 @@ export function Icon({
   color?: string;
   fill?: string;
 }) {
-  const Comp = Icons[name] as React.ComponentType<{
+  const Comp = ICONS[name] as React.ComponentType<{
     size?: number;
     color?: string;
     strokeWidth?: number;
     fill?: string;
   }>;
   if (!Comp) return null;
-  return <Comp size={size} color={color} strokeWidth={1.85} fill={fill} />;
+  return <Comp size={size} color={color} strokeWidth={1.85} {...(fill ? { fill } : {})} />;
 }
 
 export function Logo({

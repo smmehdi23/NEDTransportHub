@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Platform, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { NED_UNIVERSITY_COORDS } from '../config/env';
 import { colors } from '../theme';
 import { DecorativeMapBg, Icon } from './ui';
@@ -24,32 +25,106 @@ interface LiveMapProps {
   interactive?: boolean;
 }
 
-// Lazy-require react-native-maps on native platforms so Expo Web never fails to bundle
-let NativeMapView: React.ComponentType<any> | null = null;
-let NativeMarker: React.ComponentType<any> | null = null;
-let NativePolyline: React.ComponentType<any> | null = null;
-
-if (Platform.OS !== 'web') {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const maps = require('react-native-maps');
-    NativeMapView = maps.default;
-    NativeMarker = maps.Marker;
-    NativePolyline = maps.Polyline;
-  } catch {
-    NativeMapView = null;
-  }
-}
-
 export function LiveMap({
   style,
   center = { latitude: NED_UNIVERSITY_COORDS.latitude, longitude: NED_UNIVERSITY_COORDS.longitude },
-  route,
+  route = [],
   markers = [],
   onPressCoordinate,
   interactive = true,
 }: LiveMapProps) {
-  if (!NativeMapView) {
+  const html = useMemo(() => {
+    const safeMarkers = markers.map((m) => ({
+      id: m.id,
+      lat: m.latitude,
+      lng: m.longitude,
+      title: m.title ?? '',
+      label: m.label ?? '',
+      tone: m.tone ?? 'brand',
+    }));
+    const safeRoute = route ?? [];
+
+    return `<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html, body, #map { margin: 0; padding: 0; width: 100%; height: 100%; background: #e6ecf5; }
+    .pill-marker {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 6px 12px; border-radius: 999px; font: 700 12px -apple-system, sans-serif;
+      border: 2px solid #fff; box-shadow: 0 3px 10px rgba(0,0,0,0.25); white-space: nowrap;
+    }
+    .pill-brand { background: #142c5c; color: #fff; }
+    .pill-white { background: #fff; color: #142c5c; }
+    .car-marker {
+      width: 34px; height: 34px; border-radius: 17px; background: #142c5c;
+      border: 3px solid #fff; color: #fff; display: flex; align-items: center; justify-content: center;
+      font-size: 16px; box-shadow: 0 3px 12px rgba(20,44,92,0.45);
+    }
+    .pin-dot {
+      width: 18px; height: 18px; border-radius: 9px; background: #142c5c;
+      border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    (function() {
+      if (typeof L === 'undefined') return;
+      var map = L.map('map', {
+        zoomControl: false,
+        dragging: ${interactive ? 'true' : 'false'},
+        scrollWheelZoom: ${interactive ? 'true' : 'false'},
+        touchZoom: ${interactive ? 'true' : 'false'}
+      }).setView([${center.latitude}, ${center.longitude}], 14);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: ''
+      }).addTo(map);
+
+      var routePts = ${JSON.stringify(safeRoute)};
+      if (routePts.length >= 2) {
+        var line = L.polyline(routePts, { color: '#142c5c', weight: 4, opacity: 0.9 }).addTo(map);
+        map.fitBounds(line.getBounds(), { padding: [40, 40] });
+      }
+
+      var markers = ${JSON.stringify(safeMarkers)};
+      markers.forEach(function(m) {
+        var icon;
+        if (m.label) {
+          var cls = m.tone === 'white' ? 'pill-white' : 'pill-brand';
+          icon = L.divIcon({ className: '', html: '<div class="pill-marker ' + cls + '">' + m.label + '</div>', iconSize: [80, 30], iconAnchor: [40, 15] });
+        } else if (m.tone === 'car') {
+          icon = L.divIcon({ className: '', html: '<div class="car-marker">&#128663;</div>', iconSize: [34, 34], iconAnchor: [17, 17] });
+        } else {
+          icon = L.divIcon({ className: '', html: '<div class="pin-dot"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+        }
+        var mk = L.marker([m.lat, m.lng], { icon: icon }).addTo(map);
+        if (m.title) mk.bindPopup(m.title);
+        mk.on('click', function() {
+          window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'marker', id: m.id }));
+        });
+      });
+
+      map.on('click', function(e) {
+        window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'press',
+          latitude: e.latlng.lat,
+          longitude: e.latlng.lng
+        }));
+      });
+    })();
+  </script>
+</body>
+</html>`;
+  }, [center.latitude, center.longitude, interactive, markers, route]);
+
+  if (Platform.OS === 'web') {
     return (
       <View style={[styles.fallback, style]}>
         <DecorativeMapBg />
@@ -63,82 +138,43 @@ export function LiveMap({
     );
   }
 
-  const polylineCoords = (route ?? []).map(([lat, lng]) => ({
-    latitude: lat,
-    longitude: lng,
-  }));
-
   return (
-    <NativeMapView
-      style={[StyleSheet.absoluteFill, style]}
-      initialRegion={{
-        latitude: center.latitude,
-        longitude: center.longitude,
-        latitudeDelta: 0.045,
-        longitudeDelta: 0.045,
-      }}
-      region={{
-        latitude: center.latitude,
-        longitude: center.longitude,
-        latitudeDelta: 0.045,
-        longitudeDelta: 0.045,
-      }}
-      scrollEnabled={interactive}
-      zoomEnabled={interactive}
-      onPress={(e: { nativeEvent?: { coordinate?: { latitude: number; longitude: number } } }) => {
-        const coord = e?.nativeEvent?.coordinate;
-        if (coord && onPressCoordinate) {
-          onPressCoordinate(coord);
-        }
-      }}
-    >
-      {NativePolyline && polylineCoords.length >= 2 ? (
-        <NativePolyline
-          coordinates={polylineCoords}
-          strokeColor={colors.brand}
-          strokeWidth={4}
-        />
-      ) : null}
-
-      {NativeMarker &&
-        markers.map((m) => (
-          <NativeMarker
-            key={m.id}
-            coordinate={{ latitude: m.latitude, longitude: m.longitude }}
-            title={m.title}
-            description={m.description}
-            onPress={m.onPress}
-          >
-            {m.label ? (
-              <View
-                style={[
-                  styles.pillMarker,
-                  m.tone === 'white'
-                    ? { backgroundColor: colors.white }
-                    : { backgroundColor: colors.brand },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.pillMarkerText,
-                    { color: m.tone === 'white' ? colors.brand : colors.white },
-                  ]}
-                >
-                  {m.label}
-                </Text>
-              </View>
-            ) : m.tone === 'car' ? (
-              <View style={styles.carMarker}>
-                <Icon name="Car" size={18} color={colors.white} />
-              </View>
-            ) : undefined}
-          </NativeMarker>
-        ))}
-    </NativeMapView>
+    <View style={[StyleSheet.absoluteFill, styles.container, style]}>
+      <WebView
+        originWhitelist={['*']}
+        source={{ html }}
+        style={styles.webview}
+        javaScriptEnabled
+        domStorageEnabled
+        scrollEnabled={false}
+        onMessage={(event) => {
+          try {
+            const msg = JSON.parse(event.nativeEvent.data);
+            if (msg.type === 'press' && onPressCoordinate) {
+              onPressCoordinate({ latitude: msg.latitude, longitude: msg.longitude });
+            } else if (msg.type === 'marker') {
+              const target = markers.find((m) => m.id === msg.id);
+              target?.onPress?.();
+            }
+          } catch {
+            // ignore malformed messages
+          }
+        }}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#e6ecf5',
+    overflow: 'hidden',
+  },
+  webview: {
+    flex: 1,
+    backgroundColor: '#e6ecf5',
+  },
   fallback: {
     flex: 1,
     backgroundColor: '#e6ecf5',
@@ -159,30 +195,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.brand,
-  },
-  pillMarker: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: colors.white,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  pillMarkerText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  carMarker: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: colors.brand,
-    borderWidth: 3,
-    borderColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
