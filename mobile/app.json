@@ -7,6 +7,8 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
       "backgroundColor": "#142c5c"
     },
     "ios": {
@@ -21,16 +23,19 @@
     "android": {
       "package": "pk.edu.neduet.transporthub",
       "adaptiveIcon": {
-        "backgroundColor": "#142c5c",
+        "backgroundColor": "#091D48",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO"
       ],
       "predictiveBackGestureEnabled": false
     },
@@ -52,6 +57,11 @@
           "cameraPermission": "Allow NED Transport Hub to photograph driver verification documents."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "059a84c2-d6f3-4366-ab25-7391ab29e8a8"
+      }
+    }
   }
 }
