@@ -1,9 +1,13 @@
 # Secrets & environment files
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 backend/.env
+backend/.env.*
+!backend/.env.example
 mobile/.env
+mobile/.env.*
+!mobile/.env.example
 
 # Python
 __pycache__/
