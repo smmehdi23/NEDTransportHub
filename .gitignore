@@ -8,6 +8,9 @@ backend/.env.*
 mobile/.env
 mobile/.env.*
 !mobile/.env.example
+admin-web/.env
+admin-web/.env.*
+!admin-web/.env.example
 
 # Python
 __pycache__/
