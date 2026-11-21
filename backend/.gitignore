@@ -1,0 +1,8 @@
+.env
+uploads/
+__pycache__/
+.pytest_cache/
+.venv/
+# Firebase service-account key (secret)
+*firebase*adminsdk*.json
+firebase-credentials.json
