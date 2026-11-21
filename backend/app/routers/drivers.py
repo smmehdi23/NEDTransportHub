@@ -1,7 +1,7 @@
 from typing import Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -19,7 +19,7 @@ from app.schemas.vehicle import (
     normalize_plate,
     vehicle_to_read,
 )
-from app.services.storage import delete_document, resolve_document, save_document
+from app.services.storage import delete_document, read_document_bytes, save_document
 
 router = APIRouter(prefix="/drivers", tags=["Driver & Vehicle Verification"])
 
@@ -53,7 +53,7 @@ def submit_vehicle(
     saved: list[str] = []
     try:
         for key, upload in zip(_DOC_KEYS, (licence_document, registration_document, university_id_document)):
-            saved.append(save_document(upload, user.id, key))
+            saved.append(save_document(upload, user.id, key, db=db))
         vehicle = Vehicle(
             owner_id=user.id,
             plate_number=plate,
@@ -126,7 +126,7 @@ def resubmit_vehicle(
     old_paths: list[str] = []
     try:
         for key, upload in uploads.items():
-            path = save_document(upload, user.id, key)
+            path = save_document(upload, user.id, key, db=db)
             new_paths.append(path)
             attr = DOCUMENT_FIELDS[key]
             old_paths.append(getattr(vehicle, attr))
@@ -147,7 +147,9 @@ def resubmit_vehicle(
             delete_document(p)
         raise
     for p in old_paths:
-        delete_document(p)
+        delete_document(p, db=db)
+    if old_paths:
+        db.commit()
     return vehicle_to_read(vehicle)
 
 
@@ -172,5 +174,5 @@ def download_document(
     vehicle = db.get(Vehicle, vehicle_id)
     if vehicle is None or (vehicle.owner_id != user.id and user.role != UserRole.ADMIN):
         raise HTTPException(404, "Document not found.")
-    path, media_type = resolve_document(getattr(vehicle, DOCUMENT_FIELDS[doc_type]))
-    return FileResponse(path, media_type=media_type, headers={"Cache-Control": "private, no-store"})
+    data, media_type = read_document_bytes(getattr(vehicle, DOCUMENT_FIELDS[doc_type]), db=db)
+    return Response(content=data, media_type=media_type, headers={"Cache-Control": "private, no-store"})
