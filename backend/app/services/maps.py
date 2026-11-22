@@ -59,16 +59,64 @@ def _mapbox_route(origin: Point, dest: Point) -> RouteInfo | None:
     return RouteInfo(decode_polyline(r["geometry"]), round(r["distance"] / 1000, 2), round(r["duration"] / 60, 1), "mapbox")
 
 
+_NOMINATIM_GEOCODE = "https://nominatim.openstreetmap.org/search"
+_KARACHI_PROXIMITY = "67.1116,24.9333"
+
+
+def _nominatim_geocode(query: str) -> list[dict]:
+    """Free OpenStreetMap Nominatim fallback for detailed Karachi/NED landmarks."""
+    q = query.strip()
+    search_q = q if "karachi" in q.lower() else f"{q}, Karachi"
+    try:
+        resp = httpx.get(
+            _NOMINATIM_GEOCODE,
+            params={
+                "q": search_q,
+                "format": "json",
+                "countrycodes": "pk",
+                "limit": 5,
+                "addressdetails": 0,
+            },
+            headers={
+                "User-Agent": "NEDTransportHub/1.0 (dev@neduet.edu.pk)",
+                "Accept-Language": "en",
+            },
+            timeout=8,
+        )
+        items = resp.json()
+        if not isinstance(items, list):
+            return []
+        return [
+            {"name": item["display_name"], "lat": float(item["lat"]), "lng": float(item["lon"])}
+            for item in items[:5]
+            if "display_name" in item and "lat" in item and "lon" in item
+        ]
+    except _ERRORS as exc:
+        log.warning("Nominatim geocoding fallback failed: %s", exc)
+        return []
+
+
 def _mapbox_geocode(query: str) -> list[dict]:
     data = httpx.get(
         _MAPBOX_GEOCODE.format(query=quote(query, safe="")),
-        params={"country": "pk", "limit": 5, "access_token": settings.mapbox_token},
+        params={
+            "country": "pk",
+            "proximity": _KARACHI_PROXIMITY,
+            "limit": 5,
+            "access_token": settings.mapbox_token,
+        },
         timeout=8,
     ).json()
     if "features" not in data:
         log.warning("Mapbox Geocoding error: %s", data.get("message"))
         raise HTTPException(503, "Map service is temporarily unavailable.")
-    return [{"name": f["place_name"], "lat": f["center"][1], "lng": f["center"][0]} for f in data["features"][:5]]
+    results = [
+        {"name": f["place_name"], "lat": f["center"][1], "lng": f["center"][0]}
+        for f in data["features"][:5]
+    ]
+    if not results:
+        return _nominatim_geocode(query)
+    return results
 
 
 # ---------------- Google ----------------

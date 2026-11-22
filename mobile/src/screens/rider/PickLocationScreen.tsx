@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Keyboard,
   ScrollView,
   StyleSheet,
   Text,
@@ -30,24 +31,77 @@ export function PickLocationScreen({ navigation, route }: Props) {
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<GeocodeResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searchedOnce, setSearchedOnce] = useState(false);
   const [gates, setGates] = useState<CampusGatesResponse | null>(null);
 
   useEffect(() => {
     mapsApi.getCampusGates().then(setGates).catch(() => null);
   }, []);
 
-  const handleGeocode = async () => {
+  const getLocalMatches = useCallback((raw: string): GeocodeResult[] => {
+    const q = raw.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return KARACHI_PRESETS.filter(
+      (p) => p.name.toLowerCase().includes(q) || p.area.toLowerCase().includes(q),
+    )
+      .slice(0, 5)
+      .map((p) => ({ name: `${p.name} — ${p.area}`, lat: p.lat, lng: p.lng }));
+  }, []);
+
+  const runSearch = useCallback(
+    async (rawQuery: string) => {
+      const q = rawQuery.trim();
+      if (q.length < 2) {
+        setResults([]);
+        setSearchedOnce(false);
+        return;
+      }
+      const localMatches = getLocalMatches(q);
+      if (localMatches.length > 0) {
+        setResults(localMatches);
+      }
+      setSearching(true);
+      try {
+        const remote = await mapsApi.geocode(q);
+        const merged: GeocodeResult[] = [...localMatches];
+        for (const r of remote) {
+          const dup = merged.some(
+            (m) => Math.abs(m.lat - r.lat) < 0.0015 && Math.abs(m.lng - r.lng) < 0.0015,
+          );
+          if (!dup) merged.push(r);
+        }
+        setResults(merged.slice(0, 6));
+        setSearchedOnce(true);
+      } catch {
+        setResults(localMatches);
+        setSearchedOnce(true);
+      } finally {
+        setSearching(false);
+      }
+    },
+    [getLocalMatches],
+  );
+
+  // Live debounced search as the user types
+  useEffect(() => {
     const q = search.trim();
-    if (q.length < 2) return;
-    setSearching(true);
-    try {
-      const res = await mapsApi.geocode(q);
-      setResults(res);
-    } catch {
+    if (q.length < 2) {
       setResults([]);
-    } finally {
-      setSearching(false);
+      setSearchedOnce(false);
+      return;
     }
+    const instant = getLocalMatches(q);
+    if (instant.length > 0) setResults(instant);
+
+    const timer = setTimeout(() => {
+      runSearch(q);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [search, getLocalMatches, runSearch]);
+
+  const handleGeocode = () => {
+    Keyboard.dismiss();
+    runSearch(search);
   };
 
   const handleUseGps = async () => {
@@ -136,6 +190,17 @@ export function PickLocationScreen({ navigation, route }: Props) {
           />
           {searching ? (
             <ActivityIndicator size="small" color={colors.brand} />
+          ) : search.length > 0 ? (
+            <TouchableOpacity
+              onPress={() => {
+                setSearch('');
+                setResults([]);
+                setSearchedOnce(false);
+              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Icon name="X" size={18} color={colors.ink3} />
+            </TouchableOpacity>
           ) : (
             <TouchableOpacity onPress={handleGeocode}>
               <Icon name="Search" size={18} color={colors.brand} />
@@ -148,14 +213,22 @@ export function PickLocationScreen({ navigation, route }: Props) {
 
         {results.length > 0 ? (
           <View style={styles.dropdown}>
-            {results.slice(0, 5).map((r, idx) => (
+            {results.slice(0, 6).map((r, idx) => (
               <TouchableOpacity
                 key={`${r.name}-${idx}`}
                 style={styles.dropdownRow}
                 onPress={() => {
-                  setSelected({ name: r.name, subtitle: 'Geocoded address', lat: r.lat, lng: r.lng });
+                  Keyboard.dismiss();
+                  const [shortTitle, ...rest] = r.name.split(/—|,/);
+                  setSelected({
+                    name: shortTitle.trim() || r.name,
+                    subtitle: rest.join(',').trim() || `${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}`,
+                    lat: r.lat,
+                    lng: r.lng,
+                  });
                   setResults([]);
                   setSearch('');
+                  setSearchedOnce(false);
                 }}
               >
                 <Icon name="MapPin" size={16} color={colors.brand} />
@@ -164,6 +237,15 @@ export function PickLocationScreen({ navigation, route }: Props) {
                 </Text>
               </TouchableOpacity>
             ))}
+          </View>
+        ) : searchedOnce && !searching && search.trim().length >= 2 ? (
+          <View style={styles.dropdown}>
+            <View style={styles.dropdownRow}>
+              <Icon name="SearchX" size={16} color={colors.ink3} />
+              <Text style={[styles.dropdownText, { color: colors.ink2 }]}>
+                No places found for "{search.trim()}". Try another Karachi area or tap directly on the map.
+              </Text>
+            </View>
           </View>
         ) : null}
       </SafeAreaView>
@@ -216,6 +298,8 @@ const styles = StyleSheet.create({
     top: 0,
     left: 16,
     right: 16,
+    zIndex: 20,
+    elevation: 10,
   },
   searchBar: {
     marginTop: 8,
