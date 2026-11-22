@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
   Share,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -13,10 +14,13 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { bookingsApi, getApiError, ridesApi, type RideRead } from '../../api';
 import { useDialog } from '../../components/DialogProvider';
 import { LiveMap } from '../../components/LiveMap';
+import { RoutePointPickerModal } from '../../components/RoutePointPickerModal';
 import {
   Avatar,
+  Badge,
   Button,
   Card,
+  Chip,
   ErrorBanner,
   Footer,
   Icon,
@@ -24,46 +28,110 @@ import {
   Stars,
   type IconName,
 } from '../../components/ui';
-import { useRideFlow } from '../../context/RideFlowContext';
 import { colors, radii, shadows } from '../../theme';
 import { addMinutesIso, formatDateTime, formatPkr, formatTime } from '../../utils/format';
+import { estimatePartialFare, projectOnRoute } from '../../utils/geo';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RideDetails'>;
 
 export function RideDetailsScreen({ navigation, route }: Props) {
   const { rideId, ride: initialRide } = route.params;
-  const { pickup } = useRideFlow();
   const { showToast } = useDialog();
 
   const [ride, setRide] = useState<RideRead | null>(initialRide ?? null);
   const [loading, setLoading] = useState(!initialRide);
   const [requesting, setRequesting] = useState(false);
   const [fav, setFav] = useState(false);
-  const [useRideOrigin, setUseRideOrigin] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [customPickup, setCustomPickup] = useState<{
+    name: string;
+    lat: number;
+    lng: number;
+    progress: number;
+  } | null>(null);
+  const [customDropoff, setCustomDropoff] = useState<{
+    name: string;
+    lat: number;
+    lng: number;
+    progress: number;
+  } | null>(null);
+  const [pickerMode, setPickerMode] = useState<'pickup' | 'dropoff' | null>(null);
+  const [fareOfferText, setFareOfferText] = useState('');
+  const [fareTouched, setFareTouched] = useState(false);
 
   useEffect(() => {
     ridesApi
       .getRide(rideId)
-      .then(setRide)
+      .then((r) => {
+        setRide(r);
+        if (!fareTouched) {
+          setFareOfferText(String(r.estimated_fare));
+        }
+      })
       .catch((err) => setError(getApiError(err, 'Could not load ride details.')))
       .finally(() => setLoading(false));
   }, [rideId]);
 
+  const effectiveRoute = useMemo<[number, number][]>(() => {
+    if (!ride) return [];
+    return ride.route.length >= 2
+      ? ride.route
+      : [
+          [ride.origin_lat, ride.origin_lng],
+          [ride.dest_lat, ride.dest_lng],
+        ];
+  }, [ride]);
+
+  const activePickup = customPickup ?? (ride
+    ? { name: ride.origin_name, lat: ride.origin_lat, lng: ride.origin_lng, progress: 0 }
+    : null);
+  const activeDropoff = customDropoff ?? (ride
+    ? { name: ride.destination_name, lat: ride.dest_lat, lng: ride.dest_lng, progress: 1 }
+    : null);
+
+  const partialEstimate = useMemo(() => {
+    if (!ride || !activePickup || !activeDropoff) return { fare: 0, pct: 100 };
+    return estimatePartialFare(ride.estimated_fare, activePickup.progress, activeDropoff.progress);
+  }, [ride, activePickup, activeDropoff]);
+
+  useEffect(() => {
+    if (ride && !fareTouched) {
+      setFareOfferText(String(partialEstimate.fare));
+    }
+  }, [partialEstimate.fare, ride, fareTouched]);
+
   const handleRequestSeat = async () => {
-    if (!ride) return;
+    if (!ride || !activePickup || !activeDropoff) return;
+    const pickupCheck = projectOnRoute([activePickup.lat, activePickup.lng], effectiveRoute);
+    const dropoffCheck = projectOnRoute([activeDropoff.lat, activeDropoff.lng], effectiveRoute);
+    if (pickupCheck.distanceM > 500) {
+      setError('Pickup point must be within 500m of the driver’s route.');
+      return;
+    }
+    if (dropoffCheck.distanceM > 500) {
+      setError('Drop-off point must be within 500m of the driver’s route.');
+      return;
+    }
+    const parsedOffer = fareOfferText.trim() ? Number(fareOfferText.trim()) : undefined;
+    if (parsedOffer !== undefined && (!Number.isFinite(parsedOffer) || parsedOffer < 0 || parsedOffer > 10000)) {
+      setError('Enter a valid fare offer between PKR 0 and PKR 10,000.');
+      return;
+    }
+
     setError(null);
     setRequesting(true);
     try {
       const booking = await bookingsApi.requestSeat({
         ride_id: ride.id,
-        pickup_name: useRideOrigin ? ride.origin_name : pickup.name,
-        pickup_lat: useRideOrigin ? ride.origin_lat : pickup.lat,
-        pickup_lng: useRideOrigin ? ride.origin_lng : pickup.lng,
-        dropoff_name: ride.destination_name,
-        dropoff_lat: ride.dest_lat,
-        dropoff_lng: ride.dest_lng,
+        pickup_name: activePickup.name,
+        pickup_lat: activePickup.lat,
+        pickup_lng: activePickup.lng,
+        dropoff_name: activeDropoff.name,
+        dropoff_lat: activeDropoff.lat,
+        dropoff_lng: activeDropoff.lng,
+        proposed_fare: parsedOffer,
       });
       navigation.navigate('WaitingForSeats', { bookingId: booking.id, rideId: ride.id });
     } catch (err) {
@@ -73,7 +141,7 @@ export function RideDetailsScreen({ navigation, route }: Props) {
     }
   };
 
-  if (loading || !ride) {
+  if (loading || !ride || !activePickup || !activeDropoff) {
     return (
       <SafeAreaView style={styles.loaderWrap}>
         {loading ? (
@@ -91,28 +159,32 @@ export function RideDetailsScreen({ navigation, route }: Props) {
   const features: [string, IconName][] = [
     ['Verified Driver', 'BadgeCheck'],
     ['Live Tracking', 'MapPin'],
-    ['Split Fare', 'Split'],
+    ['Fair Offer', 'Banknote'],
     ['24/7 SOS', 'Siren'],
   ];
+
+  const offerNum = fareOfferText.trim() ? Number(fareOfferText.trim()) : partialEstimate.fare;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <View style={styles.mapWrap}>
         <LiveMap
           center={{ latitude: ride.origin_lat, longitude: ride.origin_lng }}
-          route={ride.route}
+          route={effectiveRoute}
           markers={[
             {
               id: 'origin',
-              latitude: ride.origin_lat,
-              longitude: ride.origin_lng,
-              title: ride.origin_name,
+              latitude: activePickup.lat,
+              longitude: activePickup.lng,
+              title: `Pickup: ${activePickup.name}`,
+              tone: 'success',
             },
             {
               id: 'dest',
-              latitude: ride.dest_lat,
-              longitude: ride.dest_lng,
-              title: ride.destination_name,
+              latitude: activeDropoff.lat,
+              longitude: activeDropoff.lng,
+              title: `Drop-off: ${activeDropoff.name}`,
+              tone: 'brand',
             },
           ]}
         />
@@ -182,13 +254,13 @@ export function RideDetailsScreen({ navigation, route }: Props) {
           <View style={{ flex: 1 }}>
             <Text style={styles.driverName}>{ride.driver.name}</Text>
             <Text style={styles.driverSub}>
-              Verified NED driver · {ride.distance_km.toFixed(1)} km trip
+              Verified NED driver · {ride.distance_km.toFixed(1)} km full route
             </Text>
           </View>
         </Card>
 
         <Card style={{ gap: 12 }}>
-          <Text style={styles.cardHeading}>Route overview</Text>
+          <Text style={styles.cardHeading}>Driver route</Text>
           <RouteRow
             from={ride.origin_name}
             to={ride.destination_name}
@@ -198,31 +270,113 @@ export function RideDetailsScreen({ navigation, route }: Props) {
           {ride.notes ? <Text style={styles.notes}>Note: {ride.notes}</Text> : null}
         </Card>
 
-        <Card style={{ gap: 8 }}>
-          <Text style={styles.cardHeading}>Pickup point</Text>
+        <Card style={{ gap: 12 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={styles.cardHeading}>Your stops (within 500m of route)</Text>
+            {partialEstimate.pct < 95 ? (
+              <Badge tone="info">{partialEstimate.pct}% of route</Badge>
+            ) : null}
+          </View>
+
           <TouchableOpacity
-            onPress={() => setUseRideOrigin(!useRideOrigin)}
+            onPress={() => setPickerMode('pickup')}
             style={styles.pickupChoice}
           >
-            <Icon name="MapPin" size={18} color={colors.brand} />
+            <Icon name="MapPin" size={18} color={colors.success} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.pickupName}>
-                {useRideOrigin ? ride.origin_name : pickup.name}
+              <Text style={styles.stopLabel}>Your pickup</Text>
+              <Text style={styles.pickupName} numberOfLines={1}>
+                {activePickup.name}
               </Text>
-              <Text style={styles.pickupHint}>
-                Tap to switch between driver start point and your pinned pickup
-              </Text>
+              <Text style={styles.pickupHint}>Tap to choose any point within 500m of route</Text>
             </View>
+            <Icon name="ChevronRight" size={18} color={colors.ink3} />
           </TouchableOpacity>
+
+          <View style={styles.divider} />
+
+          <TouchableOpacity
+            onPress={() => setPickerMode('dropoff')}
+            style={styles.pickupChoice}
+          >
+            <Icon name="GraduationCap" size={18} color={colors.brand} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.stopLabel}>Your drop-off</Text>
+              <Text style={styles.pickupName} numberOfLines={1}>
+                {activeDropoff.name}
+              </Text>
+              <Text style={styles.pickupHint}>Tap to adjust drop-off along the route</Text>
+            </View>
+            <Icon name="ChevronRight" size={18} color={colors.ink3} />
+          </TouchableOpacity>
+        </Card>
+
+        <Card style={{ gap: 10 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={styles.cardHeading}>Your fare offer (PKR)</Text>
+            <Text style={styles.driverFareNote}>Driver listed: {formatPkr(ride.estimated_fare)}</Text>
+          </View>
+          <Text style={styles.pickupHint}>
+            Riding part of the route? Offer a fair fare — the driver can accept, counter, or decline.
+          </Text>
+          <View style={styles.offerRow}>
+            <Text style={styles.pkrPrefix}>PKR</Text>
+            <TextInput
+              value={fareOfferText}
+              onChangeText={(v) => {
+                setFareTouched(true);
+                setFareOfferText(v.replace(/\D/g, ''));
+              }}
+              keyboardType="number-pad"
+              placeholder={String(partialEstimate.fare)}
+              placeholderTextColor={colors.ink3}
+              style={styles.offerInput}
+            />
+          </View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {partialEstimate.fare !== ride.estimated_fare ? (
+              <Chip
+                active={offerNum === partialEstimate.fare}
+                onPress={() => {
+                  setFareTouched(true);
+                  setFareOfferText(String(partialEstimate.fare));
+                }}
+              >
+                Suggested {formatPkr(partialEstimate.fare)} ({partialEstimate.pct}%)
+              </Chip>
+            ) : null}
+            <Chip
+              active={offerNum === ride.estimated_fare}
+              onPress={() => {
+                setFareTouched(true);
+                setFareOfferText(String(ride.estimated_fare));
+              }}
+            >
+              Full {formatPkr(ride.estimated_fare)}
+            </Chip>
+            {ride.estimated_fare >= 60 ? (
+              <Chip
+                active={offerNum === Math.max(20, Math.round((ride.estimated_fare * 0.5) / 10) * 10)}
+                onPress={() => {
+                  setFareTouched(true);
+                  setFareOfferText(
+                    String(Math.max(20, Math.round((ride.estimated_fare * 0.5) / 10) * 10)),
+                  );
+                }}
+              >
+                Half route ({formatPkr(Math.max(20, Math.round((ride.estimated_fare * 0.5) / 10) * 10))})
+              </Chip>
+            ) : null}
+          </View>
         </Card>
       </ScrollView>
 
       <Footer>
         <View style={styles.footerRow}>
           <View>
-            <Text style={styles.fromLabel}>Estimated fare</Text>
+            <Text style={styles.fromLabel}>Your offer</Text>
             <Text style={styles.priceBig}>
-              {formatPkr(ride.estimated_fare)}{' '}
+              {formatPkr(offerNum)}{' '}
               <Text style={styles.perSeat}>/ seat</Text>
             </Text>
           </View>
@@ -232,11 +386,33 @@ export function RideDetailsScreen({ navigation, route }: Props) {
               disabled={ride.available_seats < 1 || ride.status !== 'open'}
               onPress={handleRequestSeat}
             >
-              Request Seat
+              Send Request & Offer
             </Button>
           </View>
         </View>
       </Footer>
+
+      <RoutePointPickerModal
+        visible={pickerMode !== null}
+        title={pickerMode === 'dropoff' ? 'Select drop-off (≤ 500m)' : 'Select pickup (≤ 500m)'}
+        subtitle={`${ride.origin_name} → ${ride.destination_name}`}
+        route={effectiveRoute}
+        origin={{ name: ride.origin_name, lat: ride.origin_lat, lng: ride.origin_lng }}
+        destination={{ name: ride.destination_name, lat: ride.dest_lat, lng: ride.dest_lng }}
+        initialPoint={pickerMode === 'dropoff' ? activeDropoff : activePickup}
+        minProgress={pickerMode === 'dropoff' ? activePickup.progress : 0}
+        maxProgress={pickerMode === 'pickup' ? activeDropoff.progress : 1}
+        onClose={() => setPickerMode(null)}
+        onConfirm={(pt) => {
+          if (pickerMode === 'dropoff') {
+            setCustomDropoff({ name: pt.name, lat: pt.lat, lng: pt.lng, progress: pt.progress });
+          } else {
+            setCustomPickup({ name: pt.name, lat: pt.lat, lng: pt.lng, progress: pt.progress });
+          }
+          setFareTouched(false);
+          setPickerMode(null);
+        }}
+      />
     </View>
   );
 }
@@ -280,7 +456,7 @@ const styles = StyleSheet.create({
   sheetContent: {
     padding: 20,
     gap: 16,
-    paddingBottom: 24,
+    paddingBottom: 28,
   },
   title: {
     fontSize: 20,
@@ -337,10 +513,24 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.ink,
   },
+  driverFareNote: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.ink2,
+  },
   notes: {
     fontSize: 13,
     color: colors.ink2,
     paddingTop: 4,
+  },
+  stopLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.ink3,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.line,
   },
   pickupChoice: {
     flexDirection: 'row',
@@ -356,6 +546,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.ink3,
     marginTop: 2,
+  },
+  offerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.canvas,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingHorizontal: 14,
+    height: 48,
+  },
+  pkrPrefix: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.brand,
+  },
+  offerInput: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.ink,
   },
   footerRow: {
     flexDirection: 'row',

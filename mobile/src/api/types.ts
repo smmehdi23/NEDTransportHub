@@ -229,6 +229,7 @@ export interface BookingCreate {
   dropoff_name?: string | null;
   dropoff_lat?: number | null;
   dropoff_lng?: number | null;
+  proposed_fare?: number;
 }
 
 export interface BookingRead {

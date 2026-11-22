@@ -18,6 +18,9 @@ class BookingCreate(BaseModel):
     dropoff_name: str | None = Field(None, max_length=100)
     dropoff_lat: float | None = Field(None, ge=-90, le=90)
     dropoff_lng: float | None = Field(None, ge=-180, le=180)
+    proposed_fare: int | None = Field(
+        None, ge=0, le=10000, description="Optional passenger fare offer in PKR (e.g. partial route)"
+    )
 
     @model_validator(mode="after")
     def _dropoff_pair(self):

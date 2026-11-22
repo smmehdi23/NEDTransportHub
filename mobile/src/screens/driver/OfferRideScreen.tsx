@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   driversApi,
@@ -24,10 +24,13 @@ import {
 } from '../../components/ui';
 import { useRideFlow } from '../../context/RideFlowContext';
 import { colors, radii } from '../../theme';
-import { formatPkr } from '../../utils/format';
+import { formatDateTime, formatPkr } from '../../utils/format';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OfferRide'>;
+
+const MAX_DEPARTURE_MINUTES = 16 * 60; // 16 hours max
+const MIN_DEPARTURE_MINUTES = 5; // 5 minutes min
 
 export function OfferRideScreen({ navigation, route }: Props) {
   const params = route.params;
@@ -37,12 +40,28 @@ export function OfferRideScreen({ navigation, route }: Props) {
   const [vehicles, setVehicles] = useState<VehicleRead[]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
   const [seats, setSeats] = useState(3);
-  const [hoursAhead, setHoursAhead] = useState(2);
+  const [offsetMinutes, setOffsetMinutes] = useState(60); // default 1 hr, customizable 5 min..16 hr
   const [fareText, setFareText] = useState('');
   const [notes, setNotes] = useState('');
   const [estimate, setEstimate] = useState<FareEstimate | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const clampMinutes = (total: number) =>
+    Math.max(MIN_DEPARTURE_MINUTES, Math.min(MAX_DEPARTURE_MINUTES, total));
+  const depHours = Math.floor(offsetMinutes / 60);
+  const depMins = offsetMinutes % 60;
+  const departurePreviewIso = new Date(Date.now() + offsetMinutes * 60 * 1000).toISOString();
+
+  const adjustHours = (delta: number) => {
+    const nextH = Math.max(0, Math.min(16, depHours + delta));
+    const nextM = nextH === 16 ? 0 : nextH === 0 && depMins < 5 ? 5 : depMins;
+    setOffsetMinutes(clampMinutes(nextH * 60 + nextM));
+  };
+
+  const adjustMins = (delta: number) => {
+    setOffsetMinutes(clampMinutes(offsetMinutes + delta));
+  };
 
   useEffect(() => {
     if (params?.originName && params.originLat && params.originLng) {
@@ -96,7 +115,7 @@ export function OfferRideScreen({ navigation, route }: Props) {
     setError(null);
     setLoading(true);
     try {
-      const departureIso = new Date(Date.now() + hoursAhead * 60 * 60 * 1000).toISOString();
+      const departureIso = new Date(Date.now() + offsetMinutes * 60 * 1000).toISOString();
       const parsedFare = fareText.trim() ? Number(fareText.trim()) : undefined;
       await ridesApi.createRide({
         vehicle_id: selectedVehicleId,
@@ -197,23 +216,80 @@ export function OfferRideScreen({ navigation, route }: Props) {
             </TouchableOpacity>
           </Card>
 
-          <Card style={{ gap: 10 }}>
-            <Text style={styles.label}>Departure time</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <Card style={{ gap: 12 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={styles.label}>Departure time (max 16 hrs)</Text>
+              <Badge tone="info">{formatDateTime(departurePreviewIso)}</Badge>
+            </View>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
               {[
-                [1, 'In 1 hour'],
-                [2, 'In 2 hours'],
-                [6, 'In 6 hours'],
-                [24, 'Tomorrow'],
-              ].map(([hrs, lbl]) => (
+                [15, '15 min'],
+                [30, '30 min'],
+                [60, '1 hr'],
+                [120, '2 hrs'],
+                [240, '4 hrs'],
+                [480, '8 hrs'],
+                [960, '16 hrs'],
+              ].map(([mins, lbl]) => (
                 <Chip
-                  key={String(hrs)}
-                  active={hoursAhead === hrs}
-                  onPress={() => setHoursAhead(hrs as number)}
+                  key={String(mins)}
+                  active={offsetMinutes === mins}
+                  onPress={() => setOffsetMinutes(mins as number)}
                 >
                   {lbl as string}
                 </Chip>
               ))}
+            </ScrollView>
+
+            <View style={styles.timeGrid}>
+              <View style={styles.timeStepperBox}>
+                <Text style={styles.timeUnit}>Hours (0–16)</Text>
+                <View style={styles.timeStepper}>
+                  <TouchableOpacity
+                    disabled={depHours <= 0}
+                    onPress={() => adjustHours(-1)}
+                    style={[styles.stepBtnLight, depHours <= 0 && { opacity: 0.4 }]}
+                  >
+                    <Icon name="Minus" size={14} color={colors.brand} />
+                  </TouchableOpacity>
+                  <Text style={styles.timeVal}>{depHours}h</Text>
+                  <TouchableOpacity
+                    disabled={depHours >= 16}
+                    onPress={() => adjustHours(1)}
+                    style={[styles.stepBtnDark, depHours >= 16 && { opacity: 0.4 }]}
+                  >
+                    <Icon name="Plus" size={14} color={colors.white} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.timeStepperBox}>
+                <Text style={styles.timeUnit}>Minutes (±5)</Text>
+                <View style={styles.timeStepper}>
+                  <TouchableOpacity
+                    disabled={offsetMinutes <= MIN_DEPARTURE_MINUTES}
+                    onPress={() => adjustMins(-5)}
+                    style={[
+                      styles.stepBtnLight,
+                      offsetMinutes <= MIN_DEPARTURE_MINUTES && { opacity: 0.4 },
+                    ]}
+                  >
+                    <Icon name="Minus" size={14} color={colors.brand} />
+                  </TouchableOpacity>
+                  <Text style={styles.timeVal}>{String(depMins).padStart(2, '0')}m</Text>
+                  <TouchableOpacity
+                    disabled={offsetMinutes >= MAX_DEPARTURE_MINUTES}
+                    onPress={() => adjustMins(5)}
+                    style={[
+                      styles.stepBtnDark,
+                      offsetMinutes >= MAX_DEPARTURE_MINUTES && { opacity: 0.4 },
+                    ]}
+                  >
+                    <Icon name="Plus" size={14} color={colors.white} />
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
           </Card>
 
@@ -298,6 +374,34 @@ const styles = StyleSheet.create({
   },
   seatPillActive: { backgroundColor: colors.brand },
   seatNum: { fontSize: 14, fontWeight: '700', color: colors.ink2 },
+  timeGrid: { flexDirection: 'row', gap: 10 },
+  timeStepperBox: {
+    flex: 1,
+    backgroundColor: colors.canvas,
+    borderRadius: radii.md,
+    padding: 10,
+    alignItems: 'center',
+    gap: 8,
+  },
+  timeUnit: { fontSize: 11, fontWeight: '600', color: colors.ink3 },
+  timeStepper: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  stepBtnLight: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.brandSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepBtnDark: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timeVal: { fontSize: 15, fontWeight: '700', color: colors.ink, minWidth: 34, textAlign: 'center' },
   warnText: { fontSize: 13, color: colors.ink2 },
   footerHint: { textAlign: 'center', fontSize: 12, color: colors.ink3 },
 });

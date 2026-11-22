@@ -56,12 +56,17 @@ export function DriverRequestsScreen({ navigation, route }: Props) {
     }, [load]),
   );
 
-  const handleRespond = async (booking: BookingRead, action: 'accept' | 'reject') => {
+  const handleRespond = async (
+    booking: BookingRead,
+    action: 'accept' | 'reject',
+    explicitFare?: number,
+  ) => {
     setError(null);
     setBusyId(booking.id);
     try {
       const rawFare = fareOverrides[booking.id];
-      const parsedFare = rawFare ? Number(rawFare) : ride?.estimated_fare;
+      const parsedFare =
+        explicitFare ?? (rawFare ? Number(rawFare) : booking.proposed_fare ?? ride?.estimated_fare);
       await bookingsApi.respondToBooking(booking.id, {
         action,
         fare: action === 'accept' ? parsedFare : undefined,
@@ -102,8 +107,12 @@ export function DriverRequestsScreen({ navigation, route }: Props) {
                 </Card>
               ) : (
                 bookings.map((b) => {
+                  const riderOffer = b.fare_status === 'none' ? b.proposed_fare : null;
                   const fareVal =
                     fareOverrides[b.id] ?? String(b.proposed_fare ?? ride.estimated_fare);
+                  const numericFare = Number(fareVal || 0);
+                  const isAcceptingRiderOffer =
+                    riderOffer !== null && numericFare === riderOffer;
                   const canRespond = b.status === 'pending' && b.fare_status !== 'proposed';
                   return (
                     <Card key={b.id} style={{ gap: 12 }}>
@@ -127,15 +136,31 @@ export function DriverRequestsScreen({ navigation, route }: Props) {
                           }
                         >
                           {b.status === 'pending' && b.fare_status === 'proposed'
-                            ? 'Fare sent'
+                            ? 'Counter sent'
                             : b.status}
                         </Badge>
                       </View>
 
+                      {canRespond && riderOffer !== null ? (
+                        <View style={styles.offerBanner}>
+                          <Text style={styles.offerText}>
+                            Rider offered{' '}
+                            <Text style={{ fontWeight: '800', color: colors.brand }}>
+                              {formatPkr(riderOffer)}
+                            </Text>
+                            {riderOffer < ride.estimated_fare
+                              ? ` (your full route: ${formatPkr(ride.estimated_fare)})`
+                              : ''}
+                          </Text>
+                        </View>
+                      ) : null}
+
                       {canRespond ? (
                         <>
                           <View style={styles.fareRow}>
-                            <Text style={styles.fareLabel}>Propose fare (PKR)</Text>
+                            <Text style={styles.fareLabel}>
+                              {riderOffer !== null ? 'Accept or counter (PKR)' : 'Propose fare (PKR)'}
+                            </Text>
                             <TextInput
                               value={fareVal}
                               onChangeText={(v) =>
@@ -161,10 +186,14 @@ export function DriverRequestsScreen({ navigation, route }: Props) {
                             <Button
                               small
                               loading={busyId === b.id}
-                              onPress={() => handleRespond(b, 'accept')}
+                              onPress={() => handleRespond(b, 'accept', numericFare)}
                               style={{ flex: 1 }}
                             >
-                              Accept & Propose
+                              {isAcceptingRiderOffer
+                                ? `Accept ${formatPkr(riderOffer)}`
+                                : riderOffer !== null
+                                ? `Counter ${formatPkr(numericFare)}`
+                                : 'Accept & Propose'}
                             </Button>
                           </View>
                         </>
@@ -247,4 +276,11 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   confirmedMeta: { fontSize: 13, fontWeight: '700', color: colors.success },
+  offerBanner: {
+    backgroundColor: colors.brandSubtle,
+    borderRadius: radii.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  offerText: { fontSize: 13, color: colors.ink },
 });

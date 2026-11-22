@@ -76,13 +76,20 @@ def request_seat(payload: BookingCreate, user: User = Depends(require_rider), db
         db.add(booking)
     booking.pickup_name, booking.pickup_lat, booking.pickup_lng = payload.pickup_name.strip(), payload.pickup_lat, payload.pickup_lng
     booking.dropoff_name, booking.dropoff_lat, booking.dropoff_lng = payload.dropoff_name, payload.dropoff_lat, payload.dropoff_lng
+    if payload.proposed_fare is not None:
+        booking.proposed_fare = payload.proposed_fare
     try:
         db.flush()
     except IntegrityError:
         db.rollback()
         raise HTTPException(409, "You already have a request for this ride.")
+    offer_note = (
+        f" Offered PKR {payload.proposed_fare} (listed: PKR {ride.estimated_fare})."
+        if payload.proposed_fare is not None
+        else ""
+    )
     notify(db, ride.driver_id, "booking_request", "New seat request",
-           f"{user.name} wants a seat on {ride.origin_name} → {ride.destination_name}.",
+           f"{user.name} wants a seat on {ride.origin_name} → {ride.destination_name}.{offer_note}",
            {"booking_id": booking.id, "ride_id": ride.id})
     db.commit()
     return booking_to_read(booking, user)
@@ -126,13 +133,40 @@ def respond(booking_id: int, payload: BookingRespond, driver: User = Depends(req
                f"{driver.name} declined your request for {ride.origin_name} → {ride.destination_name}.",
                {"booking_id": b.id, "ride_id": ride.id})
     else:
+        ride = get_ride_locked(db, b.ride_id)
         if ride.status != RideStatus.OPEN or ride.available_seats < 1:
             raise HTTPException(409, "No seat is available on this ride.")
-        b.proposed_fare = payload.fare if payload.fare is not None else ride.estimated_fare
-        b.fare_status = FareStatus.PROPOSED
-        notify(db, b.passenger_id, "fare_proposed", "Fare proposed",
-               f"{driver.name} accepted your request. Proposed fare: PKR {b.proposed_fare}. Please review it.",
-               {"booking_id": b.id, "ride_id": ride.id, "fare": b.proposed_fare})
+        # If the passenger already offered a fare and the driver accepts that exact offer,
+        # confirm the seat immediately without requiring another confirmation round-trip.
+        accepted_rider_offer = (
+            b.fare_status == FareStatus.NONE
+            and b.proposed_fare is not None
+            and (payload.fare is None or payload.fare == b.proposed_fare)
+        )
+        if accepted_rider_offer:
+            ride.available_seats -= 1
+            sync_ride_seat_status(ride)
+            b.fare_status = FareStatus.ACCEPTED
+            b.status = BookingStatus.CONFIRMED
+            notify(
+                db,
+                b.passenger_id,
+                "booking_confirmed",
+                "Offer accepted! Seat confirmed",
+                f"{driver.name} accepted your offer of PKR {b.proposed_fare} for {ride.origin_name} → {ride.destination_name}.",
+                {"booking_id": b.id, "ride_id": ride.id, "fare": b.proposed_fare},
+            )
+        else:
+            b.proposed_fare = payload.fare if payload.fare is not None else ride.estimated_fare
+            b.fare_status = FareStatus.PROPOSED
+            notify(
+                db,
+                b.passenger_id,
+                "fare_proposed",
+                "Fare proposed",
+                f"{driver.name} proposed PKR {b.proposed_fare} for {ride.origin_name} → {ride.destination_name}. Please review it.",
+                {"booking_id": b.id, "ride_id": ride.id, "fare": b.proposed_fare},
+            )
     db.commit()
     return booking_to_read(b, driver)
 
