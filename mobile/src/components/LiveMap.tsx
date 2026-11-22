@@ -129,10 +129,9 @@ export function LiveMap({
         doubleClickZoom: !!init.interactive
       }).setView(init.center, 15);
 
-      var voyagerLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        subdomains: 'abcd',
-        maxZoom: 20,
-        detectRetina: true,
+      var streetLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        maxNativeZoom: 18,
         keepBuffer: 4,
         updateWhenIdle: false,
         updateWhenZooming: false
@@ -140,12 +139,18 @@ export function LiveMap({
 
       var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         maxZoom: 19,
+        maxNativeZoom: 18,
         keepBuffer: 4,
         updateWhenIdle: false
       });
 
-      var currentStyle = 'voyager';
-      voyagerLayer.addTo(map);
+      var satelliteLabels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        maxNativeZoom: 18
+      });
+
+      var currentStyle = 'street';
+      streetLayer.addTo(map);
 
       var routeGroup = L.layerGroup().addTo(map);
       var markerGroup = L.layerGroup().addTo(map);
@@ -156,14 +161,16 @@ export function LiveMap({
         if (!data) return;
 
         // 1. Switch tile style if requested
-        var wantStyle = data.style === 'satellite' ? 'satellite' : 'voyager';
+        var wantStyle = data.style === 'satellite' ? 'satellite' : 'street';
         if (wantStyle !== currentStyle) {
           if (wantStyle === 'satellite') {
-            map.removeLayer(voyagerLayer);
+            map.removeLayer(streetLayer);
             satelliteLayer.addTo(map);
+            satelliteLabels.addTo(map);
           } else {
             map.removeLayer(satelliteLayer);
-            voyagerLayer.addTo(map);
+            map.removeLayer(satelliteLabels);
+            streetLayer.addTo(map);
           }
           currentStyle = wantStyle;
         }
@@ -329,8 +336,8 @@ const styles = StyleSheet.create({
   },
   styleBtn: {
     position: 'absolute',
-    right: 12,
-    top: 96,
+    right: 14,
+    top: 122,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
