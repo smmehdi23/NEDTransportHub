@@ -1,33 +1,45 @@
 export const NED_DEPARTMENTS = [
-  'Computer Systems Engineering',
-  'Software Engineering',
-  'Computer Science & IT',
+  // Faculty of Civil & Petroleum Engineering (CPL)
+  'Civil Engineering',
+  'Urban & Infrastructure Engineering',
+  'Petroleum Engineering',
+  'Earthquake Engineering',
+  'Environmental Engineering',
+  // Faculty of Electrical & Computer Engineering (ECE)
   'Electrical Engineering',
   'Electronic Engineering',
   'Telecommunications Engineering',
-  'Mechanical Engineering',
-  'Civil Engineering',
-  'Urban & Infrastructure Engineering',
-  'Chemical Engineering',
-  'Petroleum Engineering',
-  'Polymer & Petrochemical Engineering',
-  'Industrial & Manufacturing Engineering',
-  'Automotive & Marine Engineering',
+  'Computer & Information Systems Engineering (CIS)',
   'Biomedical Engineering',
+  'Computer Science & Information Technology (CSIT)',
+  'Software Engineering',
+  // Faculty of Mechanical & Manufacturing Engineering (MME)
+  'Mechanical Engineering',
+  'Industrial & Manufacturing Engineering',
   'Textile Engineering',
-  'Metallurgical Engineering',
+  'Automotive & Marine Engineering',
+  // Faculty of Chemical & Process Engineering (CPE)
+  'Chemical Engineering',
+  'Polymer & Petrochemical Engineering',
   'Materials Engineering',
-  'Environmental Engineering',
+  'Metallurgical Engineering',
   'Food Engineering',
-  'Earthquake Engineering',
+  // Faculty of Architecture & Sciences (ASC)
   'Architecture & Planning',
   'Economics & Management Sciences',
-  'Mathematics',
   'Physics',
   'Chemistry',
+  'Mathematics',
   'English Linguistics & Allied Studies',
-  'Faculty / Staff',
+  'Essential Studies',
+  // Institutes / Constituent Campuses
+  'Panjwani-Hisaar Water Institute (PHWI)',
+  'Thar Institute of Engineering, Sciences & Technology (TIEST)',
+  // Faculty / Non-Departmental Staff (always last)
+  'Faculty / Admin Staff',
 ] as const;
+
+export const FACULTY_OPTION = 'Faculty / Admin Staff';
 
 export const CAR_PRESETS = [
   'Suzuki Cultus',

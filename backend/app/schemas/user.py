@@ -6,37 +6,67 @@ from app.models.user import AccountStatus, UserRole
 from app.schemas.auth import normalize_phone
 
 NED_DEPARTMENTS = (
-    "Computer Systems Engineering",
-    "Software Engineering",
-    "Computer Science & IT",
-    "Computer Science",
+    # Faculty of Civil & Petroleum Engineering (CPL)
+    "Civil Engineering",
+    "Urban & Infrastructure Engineering",
+    "Petroleum Engineering",
+    "Earthquake Engineering",
+    "Environmental Engineering",
+    # Faculty of Electrical & Computer Engineering (ECE)
     "Electrical Engineering",
     "Electronic Engineering",
     "Telecommunications Engineering",
-    "Mechanical Engineering",
-    "Civil Engineering",
-    "Urban & Infrastructure Engineering",
-    "Chemical Engineering",
-    "Petroleum Engineering",
-    "Polymer & Petrochemical Engineering",
-    "Industrial & Manufacturing Engineering",
-    "Automotive & Marine Engineering",
+    "Computer & Information Systems Engineering (CIS)",
     "Biomedical Engineering",
+    "Computer Science & Information Technology (CSIT)",
+    "Software Engineering",
+    # Faculty of Mechanical & Manufacturing Engineering (MME)
+    "Mechanical Engineering",
+    "Industrial & Manufacturing Engineering",
     "Textile Engineering",
-    "Metallurgical Engineering",
+    "Automotive & Marine Engineering",
+    # Faculty of Chemical & Process Engineering (CPE)
+    "Chemical Engineering",
+    "Polymer & Petrochemical Engineering",
     "Materials Engineering",
-    "Environmental Engineering",
+    "Metallurgical Engineering",
     "Food Engineering",
-    "Earthquake Engineering",
+    # Faculty of Architecture & Sciences (ASC)
     "Architecture & Planning",
     "Economics & Management Sciences",
-    "Mathematics",
     "Physics",
     "Chemistry",
+    "Mathematics",
     "English Linguistics & Allied Studies",
-    "Faculty / Staff",
+    "Essential Studies",
+    # Institutes / Constituent Campuses
+    "Panjwani-Hisaar Water Institute (PHWI)",
+    "Thar Institute of Engineering, Sciences & Technology (TIEST)",
+    # Faculty / Non-Departmental Staff (always last)
+    "Faculty / Admin Staff",
 )
-_NED_DEPT_MAP = {d.lower(): d for d in NED_DEPARTMENTS}
+
+_NED_DEPT_ALIASES = {
+    "computer systems engineering": "Computer & Information Systems Engineering (CIS)",
+    "computer and information systems engineering": "Computer & Information Systems Engineering (CIS)",
+    "cis": "Computer & Information Systems Engineering (CIS)",
+    "computer science & it": "Computer Science & Information Technology (CSIT)",
+    "computer science": "Computer Science",
+    "csit": "Computer Science & Information Technology (CSIT)",
+    "automotive engineering": "Automotive & Marine Engineering",
+    "faculty": "Faculty / Admin Staff",
+    "faculty / staff": "Faculty / Admin Staff",
+}
+_NED_DEPT_MAP = {**{d.lower(): d for d in NED_DEPARTMENTS}, **_NED_DEPT_ALIASES}
+
+
+def normalize_department(value: str | None) -> str | None:
+    if value is None or not value.strip():
+        return None
+    key = value.strip().lower()
+    if key not in _NED_DEPT_MAP:
+        raise ValueError("Please select a valid NED University department or Faculty / Admin Staff.")
+    return _NED_DEPT_MAP[key]
 
 
 class RidePreferences(BaseModel):
@@ -101,12 +131,7 @@ class UserUpdate(BaseModel):
     @field_validator("department")
     @classmethod
     def _department(cls, v: str | None) -> str | None:
-        if v is None or not v.strip():
-            return None
-        key = v.strip().lower()
-        if key not in _NED_DEPT_MAP:
-            raise ValueError("Please select a valid NED University department.")
-        return _NED_DEPT_MAP[key]
+        return normalize_department(v)
 
     @field_validator("ride_preferences")
     @classmethod

@@ -164,29 +164,38 @@ export function DriverVehicleScreen({ navigation, route }: Props) {
           />
 
           <View style={styles.seatBox}>
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.seatLabel}>Seats you can offer</Text>
               <Text style={styles.seatHint}>
-                {vehicleType === 'Bike' ? 'Bikes can offer 1 pillion seat max' : 'Cars: 1 to 6 seats'}
+                {vehicleType === 'Bike'
+                  ? 'Bikes are locked to 1 passenger seat only'
+                  : 'Cars: 1 to 6 seats'}
               </Text>
             </View>
-            <View style={styles.stepper}>
-              <TouchableOpacity
-                disabled={seats <= 1}
-                onPress={() => setSeats(Math.max(1, seats - 1))}
-                style={[styles.stepBtnLight, seats <= 1 && { opacity: 0.4 }]}
-              >
-                <Icon name="Minus" size={16} color={colors.brand} />
-              </TouchableOpacity>
-              <Text style={styles.seatNum}>{seats}</Text>
-              <TouchableOpacity
-                disabled={seats >= maxSeats}
-                onPress={() => setSeats(Math.min(maxSeats, seats + 1))}
-                style={[styles.stepBtnDark, seats >= maxSeats && { opacity: 0.4 }]}
-              >
-                <Icon name="Plus" size={16} color={colors.white} />
-              </TouchableOpacity>
-            </View>
+            {vehicleType === 'Bike' ? (
+              <View style={styles.bikeLockedPill}>
+                <Icon name="Lock" size={14} color={colors.brand} />
+                <Text style={styles.bikeLockedText}>1 passenger</Text>
+              </View>
+            ) : (
+              <View style={styles.stepper}>
+                <TouchableOpacity
+                  disabled={seats <= 1}
+                  onPress={() => setSeats(Math.max(1, seats - 1))}
+                  style={[styles.stepBtnLight, seats <= 1 && { opacity: 0.4 }]}
+                >
+                  <Icon name="Minus" size={16} color={colors.brand} />
+                </TouchableOpacity>
+                <Text style={styles.seatNum}>{seats}</Text>
+                <TouchableOpacity
+                  disabled={seats >= maxSeats}
+                  onPress={() => setSeats(Math.min(maxSeats, seats + 1))}
+                  style={[styles.stepBtnDark, seats >= maxSeats && { opacity: 0.4 }]}
+                >
+                  <Icon name="Plus" size={16} color={colors.white} />
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </View>
       </Screen>
@@ -250,5 +259,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   seatNum: { fontSize: 17, fontWeight: '700', color: colors.ink, minWidth: 20, textAlign: 'center' },
+  bikeLockedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.brandSubtle,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radii.pill,
+  },
+  bikeLockedText: { fontSize: 13, fontWeight: '700', color: colors.brand },
   footerHint: { textAlign: 'center', fontSize: 12, color: colors.ink3 },
 });

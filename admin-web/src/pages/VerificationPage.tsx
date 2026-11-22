@@ -187,8 +187,7 @@ export function VerificationPage({
                 <div className="text-center text-sm text-white/70">
                   <p>{docError}</p>
                   <p className="mt-1 text-xs text-white/50">
-                    (Note: On Vercel serverless, uploaded files in /tmp are ephemeral across cold
-                    starts.)
+                    Older uploads submitted before persistent database storage are no longer available. New uploads are stored permanently in Neon PostgreSQL.
                   </p>
                 </div>
               ) : !docPreview ? (

@@ -1,4 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
+import axios from 'axios';
 import NetInfo from '@react-native-community/netinfo';
 import {
   authApi,
@@ -46,8 +48,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setUser(me);
       return me;
-    } catch {
-      setUser(null);
+    } catch (err) {
+      if (
+        axios.isAxiosError(err) &&
+        err.response &&
+        (err.response.status === 401 || err.response.status === 403)
+      ) {
+        await tokenStorage.clearTokens();
+        setUser(null);
+      }
       return null;
     }
   }, []);
@@ -94,6 +103,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       active = false;
     };
   }, [refreshUser]);
+
+  // Real-time access enforcement: immediately revoke session and redirect to Login
+  // if the admin suspends or removes this account while the user is inside the app.
+  useEffect(() => {
+    if (!user) return;
+    const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
+      if (state === 'active') {
+        refreshUser();
+      }
+    });
+    const timer = setInterval(() => {
+      refreshUser();
+    }, 12000);
+    return () => {
+      sub.remove();
+      clearInterval(timer);
+    };
+  }, [user?.id, refreshUser]);
 
   const signIn = useCallback(async (email: string, password: string): Promise<UserRead> => {
     setLogoutReason(null);

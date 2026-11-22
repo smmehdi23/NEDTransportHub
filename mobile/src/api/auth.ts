@@ -7,6 +7,7 @@ export const authApi = {
     email: string;
     password: string;
     phone?: string;
+    department?: string;
   }): Promise<MessageResponse> {
     const { data } = await apiClient.post<MessageResponse>('/auth/register', payload);
     return data;

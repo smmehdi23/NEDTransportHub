@@ -61,7 +61,8 @@ export function OfferRideScreen({ navigation, route }: Props) {
         setVehicles(verified);
         if (verified[0]) {
           setSelectedVehicleId(verified[0].id);
-          setSeats(Math.min(3, verified[0].seat_capacity));
+          const isBike = verified[0].model.toLowerCase().startsWith('bike');
+          setSeats(isBike ? 1 : Math.min(3, verified[0].seat_capacity));
         }
       })
       .catch(() => setVehicles([]));
@@ -84,7 +85,8 @@ export function OfferRideScreen({ navigation, route }: Props) {
   }, [pickup.lat, pickup.lng, dropoff.lat, dropoff.lng, seats]);
 
   const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId);
-  const maxSeats = selectedVehicle?.seat_capacity ?? 4;
+  const isBikeSelected = selectedVehicle?.model.toLowerCase().startsWith('bike') ?? false;
+  const maxSeats = isBikeSelected ? 1 : Math.min(selectedVehicle?.seat_capacity ?? 4, 6);
 
   const handlePublish = async () => {
     if (!selectedVehicleId) {
@@ -150,7 +152,8 @@ export function OfferRideScreen({ navigation, route }: Props) {
                     active={v.id === selectedVehicleId}
                     onPress={() => {
                       setSelectedVehicleId(v.id);
-                      setSeats(Math.min(seats, v.seat_capacity));
+                      const bike = v.model.toLowerCase().startsWith('bike');
+                      setSeats(bike ? 1 : Math.min(seats, v.seat_capacity));
                     }}
                   >
                     {v.model} ({v.plate_number})
@@ -215,9 +218,14 @@ export function OfferRideScreen({ navigation, route }: Props) {
           </Card>
 
           <View style={styles.seatCard}>
-            <Text style={styles.seatLabel}>Seats to offer</Text>
+            <View>
+              <Text style={styles.seatLabel}>Seats to offer</Text>
+              {isBikeSelected ? (
+                <Text style={styles.label}>Bikes can take 1 passenger max</Text>
+              ) : null}
+            </View>
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              {Array.from({ length: Math.min(maxSeats, 4) }, (_, i) => i + 1).map((n) => (
+              {Array.from({ length: Math.min(maxSeats, 6) }, (_, i) => i + 1).map((n) => (
                 <TouchableOpacity
                   key={n}
                   onPress={() => setSeats(n)}

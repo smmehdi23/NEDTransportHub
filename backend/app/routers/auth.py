@@ -50,13 +50,14 @@ def register(
     if user and user.is_email_verified:
         raise HTTPException(409, "An account with this email already exists.")
     if user:  # unverified earlier attempt: refresh details
-        user.name, user.phone = payload.name, payload.phone
+        user.name, user.phone, user.department = payload.name, payload.phone, payload.department
         user.password_hash = hash_password(payload.password)
     else:
         user = User(
             name=payload.name,
             email=payload.email,
             phone=payload.phone,
+            department=payload.department,
             password_hash=hash_password(payload.password),
         )
         db.add(user)

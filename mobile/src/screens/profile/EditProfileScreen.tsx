@@ -1,15 +1,8 @@
 import React, { useState } from 'react';
-import {
-  FlatList,
-  Modal,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getApiError, usersApi } from '../../api';
+import { DepartmentPickerModal } from '../../components/DepartmentPickerModal';
 import { useDialog } from '../../components/DialogProvider';
 import {
   Avatar,
@@ -37,7 +30,6 @@ export function EditProfileScreen({ navigation }: Props) {
   const [phone, setPhone] = useState(user?.phone ?? '');
   const [department, setDepartment] = useState(user?.department ?? '');
   const [deptModal, setDeptModal] = useState(false);
-  const [deptQuery, setDeptQuery] = useState('');
   const [quietRide, setQuietRide] = useState(user?.ride_preferences?.quiet_ride ?? false);
   const [musicAllowed, setMusicAllowed] = useState(user?.ride_preferences?.music_allowed ?? true);
   const [smokingAllowed, setSmokingAllowed] = useState(
@@ -48,10 +40,6 @@ export function EditProfileScreen({ navigation }: Props) {
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const filteredDepts = NED_DEPARTMENTS.filter((d) =>
-    d.toLowerCase().includes(deptQuery.trim().toLowerCase()),
-  );
 
   const handleSave = async () => {
     if (name.trim().length < 2) {
@@ -129,10 +117,7 @@ export function EditProfileScreen({ navigation }: Props) {
             <Text style={styles.fieldLabel}>Department (NED University)</Text>
             <TouchableOpacity
               activeOpacity={0.85}
-              onPress={() => {
-                setDeptQuery('');
-                setDeptModal(true);
-              }}
+              onPress={() => setDeptModal(true)}
               style={styles.pickerBox}
             >
               <Icon name="GraduationCap" size={20} color={colors.accentBright} />
@@ -171,50 +156,12 @@ export function EditProfileScreen({ navigation }: Props) {
         </Button>
       </Footer>
 
-      <Modal visible={deptModal} transparent animationType="slide" onRequestClose={() => setDeptModal(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select NED Department</Text>
-              <TouchableOpacity onPress={() => setDeptModal(false)} style={{ padding: 4 }}>
-                <Icon name="X" size={20} color={colors.ink} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.searchWrap}>
-              <Icon name="Search" size={16} color={colors.ink3} />
-              <TextInput
-                value={deptQuery}
-                onChangeText={setDeptQuery}
-                placeholder="Search department..."
-                placeholderTextColor={colors.ink3}
-                style={styles.searchInput}
-              />
-            </View>
-            <FlatList
-              data={filteredDepts}
-              keyExtractor={(item) => item}
-              style={{ maxHeight: 380 }}
-              renderItem={({ item }) => {
-                const active = department === item;
-                return (
-                  <TouchableOpacity
-                    onPress={() => {
-                      setDepartment(item);
-                      setDeptModal(false);
-                    }}
-                    style={[styles.deptItem, active && styles.deptItemActive]}
-                  >
-                    <Text style={[styles.deptText, active && { color: colors.brand, fontWeight: '700' }]}>
-                      {item}
-                    </Text>
-                    {active ? <Icon name="Check" size={18} color={colors.brand} /> : null}
-                  </TouchableOpacity>
-                );
-              }}
-            />
-          </View>
-        </View>
-      </Modal>
+      <DepartmentPickerModal
+        visible={deptModal}
+        selected={department}
+        onSelect={setDepartment}
+        onClose={() => setDeptModal(false)}
+      />
     </View>
   );
 }
@@ -237,38 +184,4 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.ink },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   toggleLabel: { fontSize: 14, fontWeight: '600', color: colors.ink },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(9,29,72,0.45)',
-    justifyContent: 'flex-end',
-  },
-  modalSheet: {
-    backgroundColor: colors.white,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 20,
-    gap: 12,
-  },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  modalTitle: { fontSize: 17, fontWeight: '700', color: colors.ink },
-  searchWrap: {
-    height: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.canvas,
-    borderRadius: radii.md,
-    paddingHorizontal: 12,
-  },
-  searchInput: { flex: 1, fontSize: 14, color: colors.ink },
-  deptItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 13,
-    paddingHorizontal: 12,
-    borderRadius: radii.sm,
-  },
-  deptItemActive: { backgroundColor: colors.brandSubtle },
-  deptText: { fontSize: 14, color: colors.ink },
 });

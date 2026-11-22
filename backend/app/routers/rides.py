@@ -59,6 +59,8 @@ def create_ride(payload: RideCreate, driver: User = Depends(require_driver), db:
         raise HTTPException(404, "Vehicle not found.")
     if vehicle.verification_status != VerificationStatus.VERIFIED:
         raise HTTPException(403, "This vehicle has not been verified by an administrator.")
+    if vehicle.model.lower().startswith("bike") and payload.total_seats > 1:
+        raise HTTPException(422, "A motorbike can carry at most 1 passenger.")
     if payload.total_seats > vehicle.seat_capacity:
         raise HTTPException(422, f"This vehicle has only {vehicle.seat_capacity} seats.")
 

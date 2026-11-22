@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { authApi, getApiError } from '../../api';
+import { DepartmentPickerModal } from '../../components/DepartmentPickerModal';
 import { Button, ErrorBanner, Field, Icon, Screen, TopBar } from '../../components/ui';
-import { colors } from '../../theme';
+import { colors, radii, shadows } from '../../theme';
 import { validatePakistaniPhone } from '../../utils/validation';
 import type { RootStackParamList } from '../../navigation/types';
 
@@ -13,6 +14,8 @@ export function SignupScreen({ navigation }: Props) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [department, setDepartment] = useState('');
+  const [deptModal, setDeptModal] = useState(false);
   const [password, setPassword] = useState('');
   const [agree, setAgree] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -43,6 +46,10 @@ export function SignupScreen({ navigation }: Props) {
       }
       normalizedPhone = check.normalized;
     }
+    if (!department) {
+      setError('Please select your NED University department (or Faculty / Admin Staff).');
+      return;
+    }
     if (!passwordValid) {
       setError('Password must be 8+ characters with an uppercase letter, lowercase letter, and number.');
       return;
@@ -55,6 +62,7 @@ export function SignupScreen({ navigation }: Props) {
         email: normalizedEmail,
         password,
         phone: normalizedPhone,
+        department,
       });
       navigation.navigate('OtpVerify', {
         email: normalizedEmail,
@@ -105,6 +113,24 @@ export function SignupScreen({ navigation }: Props) {
           helper="Pakistani mobile number (+923XXXXXXXXX or 03XXXXXXXXX)"
         />
 
+        <View>
+          <Text style={styles.fieldLabel}>Department (NED University)</Text>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setDeptModal(true)}
+            style={styles.pickerBox}
+          >
+            <Icon name="GraduationCap" size={20} color={colors.accentBright} />
+            <Text
+              style={[styles.pickerVal, !department && { color: colors.ink3 }]}
+              numberOfLines={1}
+            >
+              {department || 'Select NED department or Faculty'}
+            </Text>
+            <Icon name="ChevronRight" size={18} color={colors.ink3} />
+          </TouchableOpacity>
+        </View>
+
         <Field
           label="Password"
           icon="Lock"
@@ -138,6 +164,13 @@ export function SignupScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
       </View>
+
+      <DepartmentPickerModal
+        visible={deptModal}
+        selected={department}
+        onSelect={setDepartment}
+        onClose={() => setDeptModal(false)}
+      />
     </Screen>
   );
 }
@@ -150,6 +183,28 @@ const styles = StyleSheet.create({
   sub: {
     fontSize: 15,
     color: colors.ink2,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.ink2,
+    marginBottom: 6,
+  },
+  pickerBox: {
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.white,
+    borderRadius: radii.lg,
+    paddingHorizontal: 16,
+    ...shadows.card,
+  },
+  pickerVal: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.ink,
   },
   checkRow: {
     flexDirection: 'row',

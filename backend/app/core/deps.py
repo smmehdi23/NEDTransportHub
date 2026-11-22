@@ -32,10 +32,18 @@ def get_current_user(payload: dict = Depends(get_token_payload), db: Session = D
     if db.get(RevokedToken, payload["jti"]) is not None:
         raise unauthorized
     user = db.get(User, int(payload["sub"]))
-    if user is None or payload.get("tv") != user.token_version:
+    if user is None:
         raise unauthorized
     if user.account_status != AccountStatus.ACTIVE:
+        if payload.get("tv") != user.token_version:
+            raise HTTPException(
+                status.HTTP_401_UNAUTHORIZED,
+                f"Account is {user.account_status.value}.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         raise HTTPException(status.HTTP_403_FORBIDDEN, f"Account is {user.account_status.value}.")
+    if payload.get("tv") != user.token_version:
+        raise unauthorized
     return user
 
 

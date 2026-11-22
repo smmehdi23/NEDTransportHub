@@ -63,13 +63,15 @@ apiClient.interceptors.response.use(
       url.includes('/auth/reset-password');
 
     const detailMsg = String((error.response?.data as { detail?: unknown })?.detail ?? '');
-    if (
-      status === 403 &&
-      !isAuthRoute &&
-      (detailMsg.toLowerCase().includes('suspended') || detailMsg.toLowerCase().includes('removed'))
-    ) {
+    const isAccountBlocked =
+      detailMsg.toLowerCase().includes('suspended') || detailMsg.toLowerCase().includes('removed');
+    if ((status === 403 || status === 401) && !isAuthRoute && isAccountBlocked) {
       await tokenStorage.clearTokens();
-      onUnauthorized?.(detailMsg || 'Your account has been suspended.');
+      onUnauthorized?.(
+        detailMsg
+          ? `${detailMsg} Please contact NED Transport Admin.`
+          : 'Your account has been suspended. Please contact NED Transport Admin.',
+      );
       return Promise.reject(error);
     }
 

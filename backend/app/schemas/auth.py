@@ -27,6 +27,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     phone: str | None = None
+    department: str | None = None
 
     @field_validator("name")
     @classmethod
@@ -53,6 +54,15 @@ class RegisterRequest(BaseModel):
     @classmethod
     def _phone(cls, v: str | None) -> str | None:
         return normalize_phone(v) if v else None
+
+    @field_validator("department")
+    @classmethod
+    def _department(cls, v: str | None) -> str | None:
+        if v is None or not v.strip():
+            return None
+        from app.schemas.user import normalize_department
+
+        return normalize_department(v)
 
 
 class EmailRequest(BaseModel):
