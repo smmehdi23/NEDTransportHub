@@ -1,10 +1,27 @@
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { driversApi, getApiError } from '../../api';
-import { Button, ErrorBanner, Field, Footer, Icon, Screen, TopBar, type IconName } from '../../components/ui';
+import { useDialog } from '../../components/DialogProvider';
+import {
+  Button,
+  Chip,
+  ErrorBanner,
+  Field,
+  Footer,
+  Icon,
+  Screen,
+  TopBar,
+  type IconName,
+} from '../../components/ui';
 import { useRideFlow } from '../../context/RideFlowContext';
 import { colors, radii } from '../../theme';
+import {
+  BIKE_PRESETS,
+  CAR_PRESETS,
+  validatePakistaniPlate,
+  validateVehicleModel,
+} from '../../utils/validation';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverVehicle'>;
@@ -12,6 +29,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'DriverVehicle'>;
 export function DriverVehicleScreen({ navigation, route }: Props) {
   const resubmitVehicleId = route.params?.resubmitVehicleId;
   const { driverDocs, clearDriverDocs } = useRideFlow();
+  const { showAlert } = useDialog();
 
   const [vehicleType, setVehicleType] = useState<'Car' | 'Bike'>('Car');
   const [model, setModel] = useState('');
@@ -20,18 +38,32 @@ export function DriverVehicleScreen({ navigation, route }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const maxSeats = vehicleType === 'Bike' ? 1 : 6;
+  const presets = vehicleType === 'Bike' ? BIKE_PRESETS : CAR_PRESETS;
+
   const handleSubmit = async () => {
-    if (!model.trim() || !plate.trim()) {
-      setError('Please enter your vehicle make/model and plate number.');
+    const modelCheck = validateVehicleModel(model);
+    if (!modelCheck.valid || !modelCheck.normalized) {
+      setError(modelCheck.error ?? 'Enter a valid vehicle make and model.');
       return;
     }
+    const plateCheck = validatePakistaniPlate(plate);
+    if (!plateCheck.valid || !plateCheck.normalized) {
+      setError(plateCheck.error ?? 'Enter a valid Pakistani plate number (e.g. BKA-482).');
+      return;
+    }
+    if (vehicleType === 'Bike' && seats > 1) {
+      setError('A bike can offer at most 1 seat.');
+      return;
+    }
+
     setError(null);
     setLoading(true);
     try {
-      const fullModel = `${vehicleType} - ${model.trim()}`;
+      const fullModel = `${vehicleType} - ${modelCheck.normalized}`;
       if (resubmitVehicleId) {
         await driversApi.resubmitVehicle(resubmitVehicleId, {
-          plate_number: plate.trim(),
+          plate_number: plateCheck.normalized,
           model: fullModel,
           seat_capacity: seats,
           licence_document: driverDocs.licence,
@@ -45,7 +77,7 @@ export function DriverVehicleScreen({ navigation, route }: Props) {
           return;
         }
         await driversApi.submitVehicle({
-          plate_number: plate.trim(),
+          plate_number: plateCheck.normalized,
           model: fullModel,
           seat_capacity: seats,
           licence_document: driverDocs.licence,
@@ -54,11 +86,12 @@ export function DriverVehicleScreen({ navigation, route }: Props) {
         });
       }
       clearDriverDocs();
-      Alert.alert(
-        'Submitted for Review',
-        'Your documents and vehicle details were sent to the NED transport admin team.',
-      );
-      navigation.replace('DriverStatus');
+      showAlert({
+        title: 'Submitted for Review',
+        message: 'Your documents and vehicle details were sent to the NED transport admin team.',
+        tone: 'success',
+        onClose: () => navigation.replace('DriverStatus'),
+      });
     } catch (err) {
       setError(getApiError(err, 'Could not submit vehicle for verification.'));
     } finally {
@@ -87,8 +120,8 @@ export function DriverVehicleScreen({ navigation, route }: Props) {
                   key={label}
                   onPress={() => {
                     setVehicleType(label);
-                    if (label === 'Bike') setSeats(1);
-                    else if (seats < 2) setSeats(3);
+                    setModel('');
+                    setSeats(label === 'Bike' ? 1 : 3);
                   }}
                   style={[styles.typeCard, active && styles.typeCardActive]}
                 >
@@ -109,31 +142,47 @@ export function DriverVehicleScreen({ navigation, route }: Props) {
             label="Make and model"
             value={model}
             onChangeText={setModel}
-            placeholder="Suzuki Cultus White"
+            placeholder={vehicleType === 'Bike' ? 'Honda CD-70' : 'Suzuki Cultus White'}
+            helper="Include make & model (or pick a common vehicle below)"
           />
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+            {presets.map((p) => (
+              <Chip key={p} active={model === p} onPress={() => setModel(p)}>
+                {p}
+              </Chip>
+            ))}
+          </ScrollView>
 
           <Field
             label="Plate number"
             value={plate}
-            onChangeText={setPlate}
+            onChangeText={(v) => setPlate(v.toUpperCase())}
             placeholder="BKA-482"
             autoCapitalize="characters"
-            helper="3-15 letters, digits or hyphens"
+            helper="Pakistani plate format: 2-4 letters + digits (e.g. BKA-482, ABC-1234)"
           />
 
           <View style={styles.seatBox}>
-            <Text style={styles.seatLabel}>Seats you can offer</Text>
+            <View>
+              <Text style={styles.seatLabel}>Seats you can offer</Text>
+              <Text style={styles.seatHint}>
+                {vehicleType === 'Bike' ? 'Bikes can offer 1 pillion seat max' : 'Cars: 1 to 6 seats'}
+              </Text>
+            </View>
             <View style={styles.stepper}>
               <TouchableOpacity
+                disabled={seats <= 1}
                 onPress={() => setSeats(Math.max(1, seats - 1))}
-                style={styles.stepBtnLight}
+                style={[styles.stepBtnLight, seats <= 1 && { opacity: 0.4 }]}
               >
                 <Icon name="Minus" size={16} color={colors.brand} />
               </TouchableOpacity>
               <Text style={styles.seatNum}>{seats}</Text>
               <TouchableOpacity
-                onPress={() => setSeats(Math.min(8, seats + 1))}
-                style={styles.stepBtnDark}
+                disabled={seats >= maxSeats}
+                onPress={() => setSeats(Math.min(maxSeats, seats + 1))}
+                style={[styles.stepBtnDark, seats >= maxSeats && { opacity: 0.4 }]}
               >
                 <Icon name="Plus" size={16} color={colors.white} />
               </TouchableOpacity>
@@ -153,7 +202,7 @@ export function DriverVehicleScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: 20, gap: 16 },
+  content: { paddingHorizontal: 20, gap: 14 },
   step: { fontSize: 13, fontWeight: '700', color: colors.brand },
   typeGrid: { flexDirection: 'row', gap: 12 },
   typeCard: {
@@ -182,6 +231,7 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   seatLabel: { fontSize: 15, fontWeight: '600', color: colors.ink },
+  seatHint: { fontSize: 11, color: colors.ink3, marginTop: 2 },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   stepBtnLight: {
     width: 36,

@@ -13,6 +13,8 @@ interface AuthContextValue {
   isLoading: boolean;
   isAuthenticated: boolean;
   isOffline: boolean;
+  logoutReason: string | null;
+  clearLogoutReason: () => void;
   signIn: (email: string, password: string) => Promise<UserRead>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<UserRead | null>;
@@ -24,6 +26,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserRead | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
+  const [logoutReason, setLogoutReason] = useState<string | null>(null);
+
+  const clearLogoutReason = useCallback(() => setLogoutReason(null), []);
 
   const refreshUser = useCallback(async (): Promise<UserRead | null> => {
     try {
@@ -33,6 +38,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return null;
       }
       const me = await usersApi.getMe();
+      if (me.account_status !== 'active') {
+        await tokenStorage.clearTokens();
+        setLogoutReason(`Account is ${me.account_status}. Please contact NED Transport Admin.`);
+        setUser(null);
+        return null;
+      }
       setUser(me);
       return me;
     } catch {
@@ -42,7 +53,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    setUnauthorizedListener(() => {
+    setUnauthorizedListener((reason) => {
+      setLogoutReason(
+        reason || 'Your session expired or your account was suspended. Please sign in again.',
+      );
       setUser(null);
     });
     return () => setUnauthorizedListener(null);
@@ -82,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshUser]);
 
   const signIn = useCallback(async (email: string, password: string): Promise<UserRead> => {
+    setLogoutReason(null);
     const tokens = await authApi.login({ email: email.trim().toLowerCase(), password });
     await tokenStorage.saveTokens(tokens.access_token, tokens.refresh_token);
     const me = await usersApi.getMe();
@@ -90,6 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    setLogoutReason(null);
     try {
       const refresh = await tokenStorage.getRefreshToken();
       await authApi.logout(refresh);
@@ -108,6 +124,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         isAuthenticated: Boolean(user),
         isOffline,
+        logoutReason,
+        clearLogoutReason,
         signIn,
         signOut,
         refreshUser,

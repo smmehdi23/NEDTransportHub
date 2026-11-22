@@ -10,7 +10,7 @@ import type { RootStackParamList } from '../../navigation/types';
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
 export function LoginScreen({ navigation, route }: Props) {
-  const { signIn } = useAuth();
+  const { signIn, logoutReason, clearLogoutReason } = useAuth();
   const [email, setEmail] = useState(route.params?.email ?? '');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,6 +23,7 @@ export function LoginScreen({ navigation, route }: Props) {
       return;
     }
     setError(null);
+    clearLogoutReason();
     setNeedsVerify(false);
     setLoading(true);
     try {
@@ -48,7 +49,7 @@ export function LoginScreen({ navigation, route }: Props) {
           <Text style={styles.sub}>Sign in to ride</Text>
         </View>
 
-        <ErrorBanner message={error} />
+        <ErrorBanner message={error || logoutReason} />
 
         {needsVerify ? (
           <Button

@@ -1,8 +1,9 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { historyApi, ratingsApi, safetyApi } from '../../api';
+import { useDialog } from '../../components/DialogProvider';
 import { Avatar, Badge, Card, Icon, Screen, type IconName } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../theme';
@@ -11,6 +12,7 @@ import type { RootStackParamList } from '../../navigation/types';
 export function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user, signOut, refreshUser } = useAuth();
+  const { showConfirm } = useDialog();
   const [rideCount, setRideCount] = useState(0);
   const [ratingAvg, setRatingAvg] = useState<number | null>(null);
   const [contactCount, setContactCount] = useState(0);
@@ -32,17 +34,17 @@ export function ProfileScreen() {
   );
 
   const handleLogout = () => {
-    Alert.alert('Log out?', 'You will need to sign in again to book or offer rides.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log out',
-        style: 'destructive',
-        onPress: async () => {
-          await signOut();
-          navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-        },
+    showConfirm({
+      title: 'Log out?',
+      message: 'You will need to sign in again to book or offer rides.',
+      confirmLabel: 'Log out',
+      cancelLabel: 'Cancel',
+      destructive: true,
+      onConfirm: async () => {
+        await signOut();
+        navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
       },
-    ]);
+    });
   };
 
   const rows: [string, IconName, () => void, string?][] = [

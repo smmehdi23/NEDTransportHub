@@ -16,7 +16,7 @@ import {
   TopBar,
 } from '../../components/ui';
 import { useRideFlow } from '../../context/RideFlowContext';
-import { colors } from '../../theme';
+import { colors, radii } from '../../theme';
 import { addMinutesIso, formatDateShort, formatPkr, formatTime } from '../../utils/format';
 import type { RootStackParamList } from '../../navigation/types';
 
@@ -51,7 +51,6 @@ export function SearchResultsScreen({ navigation, route }: Props) {
         sort,
       });
 
-      // Fallback to general browse if strict corridor search has no direct match
       if (res.length === 0) {
         const page = await ridesApi.browseRides({
           origin: params?.query,
@@ -104,6 +103,27 @@ export function SearchResultsScreen({ navigation, route }: Props) {
           {params?.pickupName ?? pickup.name} → {params?.dropoffName ?? dropoff.name}
         </Text>
 
+        <View style={styles.seatsBar}>
+          <Text style={styles.seatsLabel}>Seats needed</Text>
+          <View style={styles.stepper}>
+            <TouchableOpacity
+              disabled={minSeats <= 1}
+              onPress={() => setMinSeats(Math.max(1, minSeats - 1))}
+              style={[styles.stepBtnLight, minSeats <= 1 && { opacity: 0.4 }]}
+            >
+              <Icon name="Minus" size={15} color={colors.brand} />
+            </TouchableOpacity>
+            <Text style={styles.seatVal}>{minSeats}</Text>
+            <TouchableOpacity
+              disabled={minSeats >= 4}
+              onPress={() => setMinSeats(Math.min(4, minSeats + 1))}
+              style={[styles.stepBtnDark, minSeats >= 4 && { opacity: 0.4 }]}
+            >
+              <Icon name="Plus" size={15} color={colors.white} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
           <Chip active={sort === 'best'} onPress={() => setSort('best')}>
             Best match
@@ -113,9 +133,6 @@ export function SearchResultsScreen({ navigation, route }: Props) {
           </Chip>
           <Chip active={sort === 'fare'} onPress={() => setSort('fare')}>
             Lowest fare
-          </Chip>
-          <Chip active={minSeats === 2} onPress={() => setMinSeats(minSeats === 2 ? 1 : 2)}>
-            2+ seats
           </Chip>
         </ScrollView>
 
@@ -128,13 +145,15 @@ export function SearchResultsScreen({ navigation, route }: Props) {
             <Icon name="SearchX" size={36} color={colors.brand} />
             <Text style={styles.emptyTitle}>No matching rides found</Text>
             <Text style={styles.emptySub}>
-              Try adjusting your pickup area or create a ride poll so drivers see your request.
+              No open rides with {minSeats} seat{minSeats === 1 ? '' : 's'} right now. Post a ride
+              poll so verified NED drivers see your request.
             </Text>
             <Button
               onPress={() =>
                 navigation.navigate('NoRides', {
                   pickupName: params?.pickupName ?? pickup.name,
                   dropoffName: params?.dropoffName ?? dropoff.name,
+                  seatsNeeded: minSeats,
                 })
               }
             >
@@ -193,10 +212,7 @@ export function SearchResultsScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  content: {
-    paddingHorizontal: 20,
-    gap: 14,
-  },
+  content: { paddingHorizontal: 20, gap: 14 },
   mapBtn: {
     width: 40,
     height: 40,
@@ -207,42 +223,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  meta: {
-    fontSize: 13,
-    color: colors.ink2,
-  },
-  count: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.ink,
-  },
-  driverRow: {
+  meta: { fontSize: 13, color: colors.ink2 },
+  seatsBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'space-between',
+    backgroundColor: colors.white,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  driverName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.ink,
+  seatsLabel: { fontSize: 14, fontWeight: '700', color: colors.ink },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  stepBtnLight: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.brandSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  fareText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.brand,
+  stepBtnDark: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  smallMuted: {
-    fontSize: 12,
-    color: colors.ink3,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.ink,
-  },
-  emptySub: {
-    fontSize: 13,
-    color: colors.ink2,
-    textAlign: 'center',
-  },
+  seatVal: { fontSize: 16, fontWeight: '700', color: colors.ink, minWidth: 18, textAlign: 'center' },
+  count: { fontSize: 15, fontWeight: '700', color: colors.ink },
+  driverRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  driverName: { fontSize: 15, fontWeight: '700', color: colors.ink },
+  fareText: { fontSize: 16, fontWeight: '700', color: colors.brand },
+  smallMuted: { fontSize: 12, color: colors.ink3 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.ink },
+  emptySub: { fontSize: 13, color: colors.ink2, textAlign: 'center' },
 });

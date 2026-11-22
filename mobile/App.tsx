@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/context/AuthContext';
 import { RideFlowProvider } from './src/context/RideFlowContext';
+import { DialogProvider } from './src/components/DialogProvider';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { colors } from './src/theme';
 
@@ -41,12 +42,14 @@ export default function App() {
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
-        <AuthProvider>
-          <RideFlowProvider>
-            <StatusBar style="dark" />
-            <AppNavigator />
-          </RideFlowProvider>
-        </AuthProvider>
+        <DialogProvider>
+          <AuthProvider>
+            <RideFlowProvider>
+              <StatusBar style="dark" />
+              <AppNavigator />
+            </RideFlowProvider>
+          </AuthProvider>
+        </DialogProvider>
       </SafeAreaProvider>
     </ErrorBoundary>
   );

@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getApiError, pollsApi } from '../../api';
-import { Button, ErrorBanner, Icon, Screen, TopBar } from '../../components/ui';
+import { useDialog } from '../../components/DialogProvider';
+import { Button, Card, ErrorBanner, Icon, Screen, TopBar } from '../../components/ui';
 import { useRideFlow } from '../../context/RideFlowContext';
-import { colors } from '../../theme';
+import { colors, radii } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'NoRides'>;
 
-export function NoRidesScreen({ navigation }: Props) {
+export function NoRidesScreen({ navigation, route }: Props) {
   const { pickup, dropoff } = useRideFlow();
+  const { showToast } = useDialog();
+  const [seatsNeeded, setSeatsNeeded] = useState(route.params?.seatsNeeded ?? 1);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,14 +30,15 @@ export function NoRidesScreen({ navigation }: Props) {
         dest_lat: dropoff.lat,
         dest_lng: dropoff.lng,
         departure_time: departure,
-        seats_needed: 1,
-        note: 'Looking for a campus carpool ride',
+        seats_needed: seatsNeeded,
+        note: `Looking for ${seatsNeeded} seat(s) to campus`,
       });
-      Alert.alert(
-        'Ride Poll Posted!',
-        'Drivers heading on your route will be notified when they offer a matching ride.',
-      );
-      navigation.navigate('MainTabs', { screen: 'HomeTab' });
+      showToast({
+        title: 'Ride Poll Posted!',
+        message: 'Visible under My Rides → My Polls. Drivers will be notified.',
+        tone: 'success',
+      });
+      navigation.navigate('MainTabs', { screen: 'MyRidesTab' });
     } catch (err) {
       setError(getApiError(err, 'Could not post ride poll.'));
     } finally {
@@ -51,9 +55,31 @@ export function NoRidesScreen({ navigation }: Props) {
         </View>
         <Text style={styles.title}>No rides found</Text>
         <Text style={styles.sub}>
-          We could not find an open ride from {pickup.name} to {dropoff.name}. Post a ride poll so
-          verified NED drivers can offer a trip for you!
+          No open rides from {pickup.name} to {dropoff.name}. Post a ride request poll so verified
+          NED drivers can offer a trip for you.
         </Text>
+
+        <Card style={styles.seatCard}>
+          <Text style={styles.seatLabel}>Seats needed</Text>
+          <View style={styles.stepper}>
+            <TouchableOpacity
+              disabled={seatsNeeded <= 1}
+              onPress={() => setSeatsNeeded(Math.max(1, seatsNeeded - 1))}
+              style={[styles.stepBtnLight, seatsNeeded <= 1 && { opacity: 0.4 }]}
+            >
+              <Icon name="Minus" size={16} color={colors.brand} />
+            </TouchableOpacity>
+            <Text style={styles.seatVal}>{seatsNeeded}</Text>
+            <TouchableOpacity
+              disabled={seatsNeeded >= 4}
+              onPress={() => setSeatsNeeded(Math.min(4, seatsNeeded + 1))}
+              style={[styles.stepBtnDark, seatsNeeded >= 4 && { opacity: 0.4 }]}
+            >
+              <Icon name="Plus" size={16} color={colors.white} />
+            </TouchableOpacity>
+          </View>
+        </Card>
+
         <ErrorBanner message={error} />
         <View style={styles.btns}>
           <Button loading={creating} icon="Megaphone" onPress={handleCreatePoll}>
@@ -92,20 +118,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.ink,
-  },
-  sub: {
-    fontSize: 14,
-    color: colors.ink2,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  btns: {
+  title: { fontSize: 22, fontWeight: '700', color: colors.ink },
+  sub: { fontSize: 14, color: colors.ink2, textAlign: 'center', lineHeight: 20 },
+  seatCard: {
     width: '100%',
-    gap: 10,
-    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: radii.md,
   },
+  seatLabel: { fontSize: 14, fontWeight: '700', color: colors.ink },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  stepBtnLight: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.brandSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepBtnDark: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  seatVal: { fontSize: 16, fontWeight: '700', color: colors.ink, minWidth: 18, textAlign: 'center' },
+  btns: { width: '100%', gap: 10, marginTop: 4 },
 });

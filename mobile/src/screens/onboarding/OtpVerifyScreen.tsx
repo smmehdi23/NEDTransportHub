@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { authApi, getApiError } from '../../api';
+import { useDialog } from '../../components/DialogProvider';
 import { Button, ErrorBanner, Footer, Icon, Screen, TopBar } from '../../components/ui';
 import { colors, radii } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
@@ -10,6 +11,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'OtpVerify'>;
 
 export function OtpVerifyScreen({ navigation, route }: Props) {
   const { email, purpose } = route.params;
+  const { showToast } = useDialog();
   const isVerifyEmail = purpose === 'verify_email';
 
   const [code, setCode] = useState('');
@@ -34,7 +36,11 @@ export function OtpVerifyScreen({ navigation, route }: Props) {
     setLoading(true);
     try {
       await authApi.verifyEmail({ email, otp: code });
-      Alert.alert('Email verified', 'Your NED account is verified. Please sign in to continue.');
+      showToast({
+        title: 'Email verified',
+        message: 'Your NED account is verified. Please sign in to continue.',
+        tone: 'success',
+      });
       navigation.reset({
         index: 0,
         routes: [{ name: 'Login', params: { email } }],

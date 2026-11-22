@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   bookingsApi,
@@ -10,6 +10,7 @@ import {
   type PaymentRead,
   type RideRead,
 } from '../../api';
+import { useDialog } from '../../components/DialogProvider';
 import { Badge, Button, Card, ErrorBanner, Footer, Icon, Screen } from '../../components/ui';
 import { colors } from '../../theme';
 import { formatPkr } from '../../utils/format';
@@ -19,6 +20,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'DriverDone'>;
 
 export function DriverDoneScreen({ navigation, route }: Props) {
   const { rideId } = route.params;
+  const { showToast } = useDialog();
   const [ride, setRide] = useState<RideRead | null>(null);
   const [bookings, setBookings] = useState<BookingRead[]>([]);
   const [payments, setPayments] = useState<Record<number, PaymentRead>>({});
@@ -53,7 +55,11 @@ export function DriverDoneScreen({ navigation, route }: Props) {
   const handleConfirmCash = async (bookingId: number) => {
     try {
       await paymentsApi.confirmCash(bookingId);
-      Alert.alert('Cash confirmed', 'Payment marked as received.');
+      showToast({
+        title: 'Cash confirmed',
+        message: 'Payment marked as received.',
+        tone: 'success',
+      });
       load();
     } catch (err) {
       setError(getApiError(err, 'Could not confirm cash payment.'));

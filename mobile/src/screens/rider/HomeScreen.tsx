@@ -9,8 +9,10 @@ import {
   historyApi,
   notificationsApi,
   offlineCache,
+  pollsApi,
   type BookingRead,
   type HistoryItem,
+  type PollRead,
 } from '../../api';
 import { Avatar, Badge, Card, Icon, type IconName } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
@@ -20,21 +22,26 @@ import type { RootStackParamList } from '../../navigation/types';
 
 export function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { user, isOffline } = useAuth();
+  const { user, isOffline, refreshUser } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [unread, setUnread] = useState(0);
   const [nextBooking, setNextBooking] = useState<BookingRead | null>(null);
+  const [myPolls, setMyPolls] = useState<PollRead[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
 
   const loadData = useCallback(async () => {
     try {
-      const [notifRes, bookingsRes, historyRes] = await Promise.all([
+      const me = await refreshUser();
+      if (!me) return;
+      const [notifRes, bookingsRes, historyRes, pollPage] = await Promise.all([
         notificationsApi.list({ unread_only: true, page_size: 1 }).catch(() => null),
         bookingsApi.listBookings({ as_driver: false }).catch(() => [] as BookingRead[]),
         historyApi.getMyHistory({ limit: 50 }).catch(() => [] as HistoryItem[]),
+        pollsApi.listPolls({ mine: true, page_size: 5 }).catch(() => null),
       ]);
       if (notifRes) setUnread(notifRes.unread);
       setHistory(historyRes);
+      setMyPolls((pollPage?.items ?? []).filter((p) => p.status === 'open'));
 
       const upcoming = bookingsRes.find(
         (b) =>
@@ -57,7 +64,7 @@ export function HomeScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [refreshUser]);
 
   useFocusEffect(
     useCallback(() => {
@@ -235,6 +242,36 @@ export function HomeScreen() {
             ))}
           </View>
         </View>
+
+        {myPolls.length > 0 ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Your Active Ride Polls</Text>
+              <Badge tone="info">{myPolls.length} open</Badge>
+            </View>
+            {myPolls.slice(0, 2).map((poll) => (
+              <Card
+                key={poll.id}
+                onPress={() => navigation.navigate('MainTabs', { screen: 'MyRidesTab' })}
+                style={styles.driverSwitchCard}
+              >
+                <View style={styles.quickIcon}>
+                  <Icon name="Megaphone" size={20} color={colors.brand} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.driverCardTitle} numberOfLines={1}>
+                    {poll.origin_name} → {poll.destination_name}
+                  </Text>
+                  <Text style={styles.driverCardSub}>
+                    {poll.seats_needed} seat{poll.seats_needed === 1 ? '' : 's'} ·{' '}
+                    {formatDateShort(poll.departure_time)} {formatTime(poll.departure_time)}
+                  </Text>
+                </View>
+                <Icon name="ChevronRight" size={18} color={colors.ink3} />
+              </Card>
+            ))}
+          </View>
+        ) : null}
 
         {user?.is_driver_verified ? (
           <Card

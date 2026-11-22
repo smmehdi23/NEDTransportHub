@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { bookingsApi, getApiError, ridesApi, type BookingRead, type RideRead } from '../../api';
+import { useDialog } from '../../components/DialogProvider';
 import { Avatar, Button, Card, ErrorBanner, Footer, Screen, TopBar } from '../../components/ui';
 import { colors, radii } from '../../theme';
 import { formatDateTime, formatPkr } from '../../utils/format';
@@ -12,6 +13,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'FareReview'>;
 
 export function FareReviewScreen({ navigation, route }: Props) {
   const { bookingId, booking: initialBooking, ride: initialRide } = route.params;
+  const { showToast } = useDialog();
   const [booking, setBooking] = useState<BookingRead | null>(initialBooking ?? null);
   const [ride, setRide] = useState<RideRead | null>(initialRide ?? null);
   const [loading, setLoading] = useState(!initialBooking);
@@ -50,7 +52,11 @@ export function FareReviewScreen({ navigation, route }: Props) {
           rideId: updated.ride_id,
         });
       } else {
-        Alert.alert('Fare declined', 'The driver has been notified and may propose another fare.');
+        showToast({
+          title: 'Fare declined',
+          message: 'The driver has been notified and may propose another fare.',
+          tone: 'info',
+        });
         navigation.goBack();
       }
     } catch (err) {

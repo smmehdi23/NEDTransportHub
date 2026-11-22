@@ -3,7 +3,7 @@ import { API_URL } from '../config/env';
 import { tokenStorage } from './storage';
 import type { TokenResponse } from './types';
 
-type UnauthorizedListener = () => void;
+type UnauthorizedListener = (reason?: string) => void;
 let onUnauthorized: UnauthorizedListener | null = null;
 
 export function setUnauthorizedListener(cb: UnauthorizedListener | null) {
@@ -62,6 +62,17 @@ apiClient.interceptors.response.use(
       url.includes('/auth/forgot-password') ||
       url.includes('/auth/reset-password');
 
+    const detailMsg = String((error.response?.data as { detail?: unknown })?.detail ?? '');
+    if (
+      status === 403 &&
+      !isAuthRoute &&
+      (detailMsg.toLowerCase().includes('suspended') || detailMsg.toLowerCase().includes('removed'))
+    ) {
+      await tokenStorage.clearTokens();
+      onUnauthorized?.(detailMsg || 'Your account has been suspended.');
+      return Promise.reject(error);
+    }
+
     if (status === 401 && originalRequest && !originalRequest._retry && !isAuthRoute) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -94,7 +105,11 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         await tokenStorage.clearTokens();
-        onUnauthorized?.();
+        const reason = getApiError(
+          refreshError,
+          'Your session expired or your account was suspended. Please sign in again.',
+        );
+        onUnauthorized?.(reason);
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

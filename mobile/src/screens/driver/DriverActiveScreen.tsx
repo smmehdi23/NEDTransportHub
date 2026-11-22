@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -10,6 +10,7 @@ import {
   trackingApi,
   type TrackingSnapshot,
 } from '../../api';
+import { useDialog } from '../../components/DialogProvider';
 import { LiveMap } from '../../components/LiveMap';
 import { Avatar, Button, ErrorBanner, Icon } from '../../components/ui';
 import { colors, radii, shadows } from '../../theme';
@@ -19,6 +20,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'DriverActive'>;
 
 export function DriverActiveScreen({ navigation, route }: Props) {
   const { rideId } = route.params;
+  const { showConfirm } = useDialog();
   const [snapshot, setSnapshot] = useState<TrackingSnapshot | null>(null);
   const [currentCoords, setCurrentCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [ending, setEnding] = useState(false);
@@ -79,23 +81,23 @@ export function DriverActiveScreen({ navigation, route }: Props) {
   }, [rideId]);
 
   const handleComplete = () => {
-    Alert.alert('End ride?', 'Passengers will be prompted to pay and rate the trip.', [
-      { text: 'Not yet', style: 'cancel' },
-      {
-        text: 'Complete Ride',
-        onPress: async () => {
-          setEnding(true);
-          try {
-            await ridesApi.completeRide(rideId);
-            navigation.replace('DriverDone', { rideId });
-          } catch (err) {
-            setError(getApiError(err, 'Could not complete ride.'));
-          } finally {
-            setEnding(false);
-          }
-        },
+    showConfirm({
+      title: 'End ride?',
+      message: 'Passengers will be prompted to pay and rate the trip.',
+      confirmLabel: 'Complete Ride',
+      cancelLabel: 'Not yet',
+      onConfirm: async () => {
+        setEnding(true);
+        try {
+          await ridesApi.completeRide(rideId);
+          navigation.replace('DriverDone', { rideId });
+        } catch (err) {
+          setError(getApiError(err, 'Could not complete ride.'));
+        } finally {
+          setEnding(false);
+        }
       },
-    ]);
+    });
   };
 
   const mapCenter = currentCoords

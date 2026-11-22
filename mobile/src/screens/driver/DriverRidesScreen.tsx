@@ -1,8 +1,9 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getApiError, ridesApi, type RideRead } from '../../api';
+import { useDialog } from '../../components/DialogProvider';
 import { Badge, Button, Card, ErrorBanner, Screen, TopBar } from '../../components/ui';
 import { colors, radii } from '../../theme';
 import { formatDateShort, formatPkr, formatTime } from '../../utils/format';
@@ -11,6 +12,7 @@ import type { RootStackParamList } from '../../navigation/types';
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverRides'>;
 
 export function DriverRidesScreen({ navigation }: Props) {
+  const { showConfirm, showToast } = useDialog();
   const [tab, setTab] = useState<'Upcoming' | 'Completed' | 'Cancelled'>('Upcoming');
   const [rides, setRides] = useState<RideRead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,21 +43,26 @@ export function DriverRidesScreen({ navigation }: Props) {
   });
 
   const handleCancelRide = (ride: RideRead) => {
-    Alert.alert('Cancel this ride?', 'All booked passengers will be notified.', [
-      { text: 'Keep', style: 'cancel' },
-      {
-        text: 'Cancel Ride',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await ridesApi.cancelRide(ride.id, 'Driver cancelled ride');
-            load();
-          } catch (err) {
-            setError(getApiError(err, 'Could not cancel ride.'));
-          }
-        },
+    showConfirm({
+      title: 'Cancel this ride?',
+      message: 'All booked passengers will be notified.',
+      confirmLabel: 'Cancel Ride',
+      cancelLabel: 'Keep',
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          await ridesApi.cancelRide(ride.id, 'Driver cancelled ride');
+          showToast({
+            title: 'Ride cancelled',
+            message: 'Booked passengers have been notified.',
+            tone: 'info',
+          });
+          load();
+        } catch (err) {
+          setError(getApiError(err, 'Could not cancel ride.'));
+        }
       },
-    ]);
+    });
   };
 
   return (

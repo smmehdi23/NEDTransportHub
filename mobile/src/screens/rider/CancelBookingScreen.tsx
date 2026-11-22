@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { bookingsApi, getApiError } from '../../api';
+import { useDialog } from '../../components/DialogProvider';
 import { Button, ErrorBanner, Footer, Icon, Screen, TopBar } from '../../components/ui';
 import { colors, radii } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
@@ -17,6 +18,7 @@ const REASONS = [
 
 export function CancelBookingScreen({ navigation, route }: Props) {
   const { bookingId, driverName } = route.params;
+  const { showToast } = useDialog();
   const [reason, setReason] = useState(REASONS[0]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +28,11 @@ export function CancelBookingScreen({ navigation, route }: Props) {
     setLoading(true);
     try {
       await bookingsApi.cancelBooking(bookingId, reason);
-      Alert.alert('Booking cancelled', 'Your seat has been released and the driver notified.');
+      showToast({
+        title: 'Booking cancelled',
+        message: 'Your seat has been released and the driver notified.',
+        tone: 'info',
+      });
       navigation.navigate('MainTabs', { screen: 'HomeTab' });
     } catch (err) {
       setError(getApiError(err, 'Could not cancel booking.'));

@@ -12,6 +12,8 @@ export function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [suspendTarget, setSuspendTarget] = useState<AdminUser | null>(null);
+  const [suspendReason, setSuspendReason] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -48,21 +50,47 @@ export function UsersPage() {
   }, [selected?.id]);
 
   const handleToggleStatus = async (u: AdminUser) => {
-    const next = u.account_status === 'active' ? 'suspended' : 'active';
-    let reason: string | undefined;
-    if (next === 'suspended') {
-      const input = window.prompt(`Reason for suspending ${u.name}?`);
-      if (!input || !input.trim()) return;
-      reason = input.trim();
+    if (u.account_status === 'active') {
+      setSuspendReason('');
+      setSuspendTarget(u);
+      return;
     }
     setBusy(true);
     setError(null);
     try {
-      const updated = await adminApi.updateUserStatus(u.id, next, reason);
+      const updated = await adminApi.updateUserStatus(u.id, 'active');
       setSelected(updated);
       setUsers((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not update status');
+      setError(err instanceof Error ? err.message : 'Could not reinstate user');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleConfirmSuspend = async () => {
+    if (!suspendTarget) return;
+    if (!suspendReason.trim()) {
+      setError('Please enter a reason for suspending this account.');
+      return;
+    }
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const updated = await adminApi.updateUserStatus(
+        suspendTarget.id,
+        'suspended',
+        suspendReason.trim(),
+      );
+      setSelected(updated);
+      setUsers((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
+      setSuspendTarget(null);
+      setSuspendReason('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not suspend user');
     } finally {
       setBusy(false);
     }
@@ -163,6 +191,46 @@ export function UsersPage() {
             </div>
           )}
         </Panel>
+
+        {suspendTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-md space-y-4 rounded-3xl bg-white p-6 shadow-2xl">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-ink">Suspend {suspendTarget.name}?</h3>
+                <button
+                  type="button"
+                  onClick={() => setSuspendTarget(null)}
+                  className="rounded-full p-1.5 text-ink3 hover:bg-canvas"
+                >
+                  <Icon n="X" size={18} />
+                </button>
+              </div>
+              <p className="text-sm text-ink2">
+                This will immediately end all active sessions and log the user out of the mobile
+                app.
+              </p>
+              <textarea
+                value={suspendReason}
+                onChange={(e) => setSuspendReason(e.target.value)}
+                placeholder="Enter reason for suspension..."
+                className="h-24 w-full resize-none rounded-2xl border border-line bg-canvas/50 p-3 text-sm outline-none focus:border-brand focus:bg-white"
+              />
+              <div className="flex justify-end gap-2">
+                <Button small v="secondary" onClick={() => setSuspendTarget(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  small
+                  v="danger"
+                  disabled={busy || !suspendReason.trim()}
+                  onClick={handleConfirmSuspend}
+                >
+                  {busy ? 'Suspending...' : 'Confirm Suspend'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

@@ -4,6 +4,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { authApi, getApiError } from '../../api';
 import { Button, ErrorBanner, Field, Icon, Screen, TopBar } from '../../components/ui';
 import { colors } from '../../theme';
+import { validatePakistaniPhone } from '../../utils/validation';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Signup'>;
@@ -33,6 +34,15 @@ export function SignupScreen({ navigation }: Props) {
       setError('Only @cloud.neduet.edu.pk email addresses can register.');
       return;
     }
+    let normalizedPhone: string | undefined;
+    if (phone.trim()) {
+      const check = validatePakistaniPhone(phone);
+      if (!check.valid) {
+        setError(check.error ?? 'Enter a valid Pakistani phone number.');
+        return;
+      }
+      normalizedPhone = check.normalized;
+    }
     if (!passwordValid) {
       setError('Password must be 8+ characters with an uppercase letter, lowercase letter, and number.');
       return;
@@ -44,7 +54,7 @@ export function SignupScreen({ navigation }: Props) {
         name: name.trim(),
         email: normalizedEmail,
         password,
-        phone: phone.trim() || undefined,
+        phone: normalizedPhone,
       });
       navigation.navigate('OtpVerify', {
         email: normalizedEmail,
@@ -90,8 +100,9 @@ export function SignupScreen({ navigation }: Props) {
           icon="Phone"
           value={phone}
           onChangeText={setPhone}
-          placeholder="03001234567"
+          placeholder="+923001234567"
           keyboardType="phone-pad"
+          helper="Pakistani mobile number (+923XXXXXXXXX or 03XXXXXXXXX)"
         />
 
         <Field

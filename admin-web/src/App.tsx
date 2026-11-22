@@ -53,6 +53,7 @@ export default function App() {
   const [detailVehicleId, setDetailVehicleId] = useState<number | undefined>();
   const [pendingCount, setPendingCount] = useState(0);
   const [sosCount, setSosCount] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const loadBadges = useCallback(async () => {
     try {
@@ -108,9 +109,30 @@ export default function App() {
   const currentNav = NAV.find((n) => n.key === tab) ?? NAV[0];
 
   return (
-    <div className="flex min-h-screen bg-canvas">
-      <aside className="flex w-64 shrink-0 flex-col bg-brand-strong p-4 text-white">
-        <div className="mb-8 flex items-center gap-2.5 px-2 pt-2">
+    <div className="flex min-h-screen flex-col bg-canvas md:flex-row">
+      {/* Mobile top bar */}
+      <div className="flex items-center justify-between bg-brand-strong px-4 py-3 text-white md:hidden">
+        <div className="flex items-center gap-2.5">
+          <BrandMark size={30} onDark />
+          <b className="text-sm">NED Admin</b>
+        </div>
+        <button
+          type="button"
+          onClick={() => setMenuOpen(!menuOpen)}
+          className="rounded-xl bg-white/15 p-2 text-white"
+          aria-label="Toggle Menu"
+        >
+          <Icon n={menuOpen ? 'X' : 'Menu'} size={20} />
+        </button>
+      </div>
+
+      <aside
+        className={cx(
+          'w-full shrink-0 flex-col bg-brand-strong p-4 text-white md:flex md:w-64',
+          menuOpen ? 'flex' : 'hidden',
+        )}
+      >
+        <div className="mb-8 hidden items-center gap-2.5 px-2 pt-2 md:flex">
           <BrandMark size={36} onDark />
           <b>NED Transport Hub</b>
         </div>
@@ -123,6 +145,7 @@ export default function App() {
             onClick={() => {
               setDetailVehicleId(undefined);
               setTab(item.key);
+              setMenuOpen(false);
             }}
             className={cx(
               'mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
@@ -164,7 +187,7 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 overflow-y-auto p-8">
+      <main className="min-w-0 flex-1 overflow-y-auto p-4 md:p-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{currentNav.title}</h1>

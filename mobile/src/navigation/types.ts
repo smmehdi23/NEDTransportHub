@@ -35,7 +35,7 @@ export type RootStackParamList = {
     pickupName?: string;
     dropoffName?: string;
   } | undefined;
-  NoRides: { pickupName?: string; dropoffName?: string } | undefined;
+  NoRides: { pickupName?: string; dropoffName?: string; seatsNeeded?: number } | undefined;
   ResultsMap: { matches: RideMatchRead[] };
   RideDetails: { rideId: number; ride?: RideRead };
   FareReview: { bookingId: number; booking?: BookingRead; ride?: RideRead };

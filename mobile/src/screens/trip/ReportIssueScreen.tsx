@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   getApiError,
@@ -8,6 +8,7 @@ import {
   type HistoryItem,
   type ReportRead,
 } from '../../api';
+import { useDialog } from '../../components/DialogProvider';
 import {
   Badge,
   Button,
@@ -29,6 +30,7 @@ const CATEGORIES = ['Unsafe driving', 'Late or no-show', 'Rude behaviour', 'Paym
 export function ReportIssueScreen({ navigation, route }: Props) {
   const initialRideId = route.params?.rideId;
   const reportedUserId = route.params?.reportedUserId;
+  const { showToast } = useDialog();
 
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [details, setDetails] = useState('');
@@ -69,10 +71,11 @@ export function ReportIssueScreen({ navigation, route }: Props) {
         reported_user_id: reportedUserId ?? undefined,
         description: fullDesc,
       });
-      Alert.alert(
-        'Report Submitted',
-        'NED Transport Admin has been notified and will review within 24 hours.',
-      );
+      showToast({
+        title: 'Report Submitted',
+        message: 'NED Transport Admin has been notified and will review within 24 hours.',
+        tone: 'success',
+      });
       navigation.goBack();
     } catch (err) {
       setError(getApiError(err, 'Could not submit report.'));

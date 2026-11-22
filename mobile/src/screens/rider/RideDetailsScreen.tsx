@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { bookingsApi, getApiError, ridesApi, type RideRead } from '../../api';
+import { useDialog } from '../../components/DialogProvider';
 import { LiveMap } from '../../components/LiveMap';
 import {
   Avatar,
@@ -33,6 +34,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'RideDetails'>;
 export function RideDetailsScreen({ navigation, route }: Props) {
   const { rideId, ride: initialRide } = route.params;
   const { pickup } = useRideFlow();
+  const { showToast } = useDialog();
 
   const [ride, setRide] = useState<RideRead | null>(initialRide ?? null);
   const [loading, setLoading] = useState(!initialRide);
@@ -120,7 +122,17 @@ export function RideDetailsScreen({ navigation, route }: Props) {
           </TouchableOpacity>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <TouchableOpacity
-              onPress={() => Alert.alert('Share Ride', `${ride.origin_name} → ${ride.destination_name}`)}
+              onPress={() => {
+                Share.share({
+                  message: `NED Transport Hub ride: ${ride.origin_name} → ${ride.destination_name} (${formatDateTime(ride.departure_time)}, ${formatPkr(ride.estimated_fare)}/seat)`,
+                }).catch(() => {
+                  showToast({
+                    title: 'Ride route',
+                    message: `${ride.origin_name} → ${ride.destination_name}`,
+                    tone: 'info',
+                  });
+                });
+              }}
               style={styles.circleBtn}
             >
               <Icon name="Share2" size={18} color={colors.ink} />

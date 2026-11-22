@@ -14,10 +14,12 @@ def validate_password_strength(value: str) -> str:
 
 
 def normalize_phone(value: str) -> str:
-    cleaned = re.sub(r"[\s-]", "", value)
-    if not re.fullmatch(r"\+?\d{10,15}", cleaned):
-        raise ValueError("Phone number must contain 10 to 15 digits, optionally starting with +.")
-    return cleaned
+    cleaned = re.sub(r"[\s-]", "", value.strip())
+    if re.fullmatch(r"03\d{9}", cleaned):
+        return "+92" + cleaned[1:]
+    if re.fullmatch(r"\+923\d{9}", cleaned):
+        return cleaned
+    raise ValueError("Enter a valid Pakistani mobile number (e.g. +923001234567 or 03001234567).")
 
 
 class RegisterRequest(BaseModel):

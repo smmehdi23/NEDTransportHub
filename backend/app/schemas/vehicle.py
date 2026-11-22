@@ -63,15 +63,22 @@ class RejectRequest(BaseModel):
 
 def normalize_plate(raw: str) -> str:
     plate = re.sub(r"\s+", "", raw).upper()
-    if not re.fullmatch(r"[A-Z0-9-]{3,15}", plate):
-        raise HTTPException(422, "Plate number must be 3-15 letters, digits or hyphens.")
+    if not re.fullmatch(r"[A-Z]{2,4}-?\d{1,4}", plate):
+        raise HTTPException(
+            422,
+            "Enter a valid Pakistani plate number (e.g. BKA-482 or ABC-1234).",
+        )
     return plate
 
 
 def normalize_model(raw: str) -> str:
-    model = raw.strip()
-    if not 2 <= len(model) <= 50:
-        raise HTTPException(422, "Vehicle model must be 2-50 characters.")
+    model = re.sub(r"\s+", " ", raw.strip())
+    words = [w for w in re.split(r"[\s-]+", model) if len(w) >= 2]
+    if not (3 <= len(model) <= 50) or len(words) < 2 or not re.fullmatch(r"[A-Za-z0-9\s\-./]+", model):
+        raise HTTPException(
+            422,
+            "Enter a valid vehicle make and model (e.g. Suzuki Cultus or Honda CD-70).",
+        )
     return model
 
 

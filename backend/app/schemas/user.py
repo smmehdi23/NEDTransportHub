@@ -5,6 +5,39 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.models.user import AccountStatus, UserRole
 from app.schemas.auth import normalize_phone
 
+NED_DEPARTMENTS = (
+    "Computer Systems Engineering",
+    "Software Engineering",
+    "Computer Science & IT",
+    "Computer Science",
+    "Electrical Engineering",
+    "Electronic Engineering",
+    "Telecommunications Engineering",
+    "Mechanical Engineering",
+    "Civil Engineering",
+    "Urban & Infrastructure Engineering",
+    "Chemical Engineering",
+    "Petroleum Engineering",
+    "Polymer & Petrochemical Engineering",
+    "Industrial & Manufacturing Engineering",
+    "Automotive & Marine Engineering",
+    "Biomedical Engineering",
+    "Textile Engineering",
+    "Metallurgical Engineering",
+    "Materials Engineering",
+    "Environmental Engineering",
+    "Food Engineering",
+    "Earthquake Engineering",
+    "Architecture & Planning",
+    "Economics & Management Sciences",
+    "Mathematics",
+    "Physics",
+    "Chemistry",
+    "English Linguistics & Allied Studies",
+    "Faculty / Staff",
+)
+_NED_DEPT_MAP = {d.lower(): d for d in NED_DEPARTMENTS}
+
 
 class RidePreferences(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -64,6 +97,16 @@ class UserUpdate(BaseModel):
     @classmethod
     def _phone(cls, v: str | None) -> str | None:
         return normalize_phone(v) if v else None
+
+    @field_validator("department")
+    @classmethod
+    def _department(cls, v: str | None) -> str | None:
+        if v is None or not v.strip():
+            return None
+        key = v.strip().lower()
+        if key not in _NED_DEPT_MAP:
+            raise ValueError("Please select a valid NED University department.")
+        return _NED_DEPT_MAP[key]
 
     @field_validator("ride_preferences")
     @classmethod

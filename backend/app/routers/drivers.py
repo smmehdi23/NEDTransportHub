@@ -47,6 +47,8 @@ def submit_vehicle(
     """Submit a vehicle with licence, vehicle registration and university ID documents for admin review."""
     plate = normalize_plate(plate_number)
     model = normalize_model(model)
+    if model.lower().startswith("bike") and seat_capacity > 1:
+        raise HTTPException(422, "A motorbike can offer at most 1 passenger seat.")
     if db.scalar(select(Vehicle.id).where(Vehicle.plate_number == plate)):
         raise HTTPException(409, "A vehicle with this plate number is already registered.")
 
@@ -121,6 +123,8 @@ def resubmit_vehicle(
         vehicle.model = normalize_model(model)
     if seat_capacity is not None:
         vehicle.seat_capacity = seat_capacity
+    if vehicle.model.lower().startswith("bike") and vehicle.seat_capacity > 1:
+        raise HTTPException(422, "A motorbike can offer at most 1 passenger seat.")
 
     new_paths: list[str] = []
     old_paths: list[str] = []

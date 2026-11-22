@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   driversApi,
@@ -9,6 +9,7 @@ import {
   type FareEstimate,
   type VehicleRead,
 } from '../../api';
+import { useDialog } from '../../components/DialogProvider';
 import {
   Badge,
   Button,
@@ -31,6 +32,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'OfferRide'>;
 export function OfferRideScreen({ navigation, route }: Props) {
   const params = route.params;
   const { pickup, dropoff, setPickup, setDropoff } = useRideFlow();
+  const { showToast } = useDialog();
 
   const [vehicles, setVehicles] = useState<VehicleRead[]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
@@ -108,7 +110,11 @@ export function OfferRideScreen({ navigation, route }: Props) {
         estimated_fare: Number.isFinite(parsedFare) ? parsedFare : undefined,
         notes: notes.trim() || undefined,
       });
-      Alert.alert('Ride Published!', 'NED riders along your route can now find and book seats.');
+      showToast({
+        title: 'Ride Published!',
+        message: 'NED riders along your route can now find and book seats.',
+        tone: 'success',
+      });
       navigation.replace('DriverRides');
     } catch (err) {
       setError(getApiError(err, 'Could not publish ride.'));

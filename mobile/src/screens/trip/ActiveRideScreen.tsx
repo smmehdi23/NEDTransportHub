@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Linking, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Linking, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
@@ -11,6 +11,7 @@ import {
   type RideRead,
   type TrackingSnapshot,
 } from '../../api';
+import { useDialog } from '../../components/DialogProvider';
 import { LiveMap } from '../../components/LiveMap';
 import { Avatar, Badge, Button, ErrorBanner, Icon } from '../../components/ui';
 import { colors, radii, shadows } from '../../theme';
@@ -20,6 +21,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ActiveRide'>;
 
 export function ActiveRideScreen({ navigation, route }: Props) {
   const { rideId, bookingId } = route.params;
+  const { showAlert, showToast } = useDialog();
   const [snapshot, setSnapshot] = useState<TrackingSnapshot | null>(null);
   const [ride, setRide] = useState<RideRead | null>(null);
   const [carPos, setCarPos] = useState<{ lat: number; lng: number } | null>(null);
@@ -86,12 +88,17 @@ export function ActiveRideScreen({ navigation, route }: Props) {
       await Share.share({
         message: `Track my NED Transport Hub ride live: ${res.url}`,
       });
-      Alert.alert(
-        'Trip shared',
-        `Notified ${res.contacts_notified} trusted contact(s) with your live link.`,
-      );
+      showToast({
+        title: 'Trip shared',
+        message: `Notified ${res.contacts_notified} trusted contact(s) with your live link.`,
+        tone: 'success',
+      });
     } catch (err) {
-      Alert.alert('Cannot share trip', getApiError(err, 'Add a trusted contact first.'));
+      showAlert({
+        title: 'Cannot share trip',
+        message: getApiError(err, 'Add a trusted contact first.'),
+        tone: 'warning',
+      });
     } finally {
       setSharing(false);
     }

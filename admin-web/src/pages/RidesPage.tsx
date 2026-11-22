@@ -7,6 +7,9 @@ export function RidesPage() {
   const [rides, setRides] = useState<RideItem[]>([]);
   const [bookingsRide, setBookingsRide] = useState<RideItem | null>(null);
   const [bookings, setBookings] = useState<BookingItem[]>([]);
+  const [cancelTarget, setCancelTarget] = useState<RideItem | null>(null);
+  const [cancelReason, setCancelReason] = useState('Cancelled by administrator');
+  const [cancelling, setCancelling] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,14 +40,25 @@ export function RidesPage() {
     }
   };
 
-  const handleAdminCancel = async (r: RideItem) => {
-    const reason = window.prompt(`Reason to cancel Ride #${r.id}?`, 'Cancelled by administrator');
-    if (reason === null) return;
+  const handleAdminCancel = (r: RideItem) => {
+    setCancelReason('Cancelled by administrator');
+    setCancelTarget(r);
+  };
+
+  const confirmAdminCancel = async () => {
+    if (!cancelTarget) return;
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    setCancelling(true);
     try {
-      await adminApi.cancelRide(r.id, reason);
+      await adminApi.cancelRide(cancelTarget.id, cancelReason.trim() || 'Cancelled by administrator');
+      setCancelTarget(null);
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not cancel ride');
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -194,6 +208,32 @@ export function RidesPage() {
             </div>
           )}
         </Panel>
+      )}
+
+      {cancelTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md space-y-4 rounded-3xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-ink">Cancel Ride #{cancelTarget.id}?</h3>
+            <p className="text-sm text-ink2">
+              {cancelTarget.origin_name} → {cancelTarget.destination_name}. All booked passengers
+              and the driver will be notified.
+            </p>
+            <input
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Cancellation reason"
+              className="h-11 w-full rounded-2xl border border-line bg-canvas/50 px-3 text-sm outline-none focus:border-brand focus:bg-white"
+            />
+            <div className="flex justify-end gap-2">
+              <Button small v="secondary" onClick={() => setCancelTarget(null)}>
+                Keep Ride
+              </Button>
+              <Button small v="danger" disabled={cancelling} onClick={confirmAdminCancel}>
+                {cancelling ? 'Cancelling...' : 'Confirm Cancel'}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

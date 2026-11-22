@@ -1,8 +1,9 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getApiError, safetyApi, type ContactRead } from '../../api';
+import { useDialog } from '../../components/DialogProvider';
 import {
   Avatar,
   Button,
@@ -14,11 +15,13 @@ import {
   TopBar,
 } from '../../components/ui';
 import { colors } from '../../theme';
+import { validatePakistaniPhone } from '../../utils/validation';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TrustedContacts'>;
 
 export function TrustedContactsScreen({ navigation }: Props) {
+  const { showConfirm, showToast } = useDialog();
   const [contacts, setContacts] = useState<ContactRead[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -46,17 +49,23 @@ export function TrustedContactsScreen({ navigation }: Props) {
   );
 
   const handleAdd = async () => {
-    if (!name.trim() || !phone.trim()) {
-      setError('Enter both contact name and phone number.');
+    if (name.trim().length < 2) {
+      setError('Enter a contact name (at least 2 characters).');
+      return;
+    }
+    const phoneCheck = validatePakistaniPhone(phone);
+    if (!phoneCheck.valid || !phoneCheck.normalized) {
+      setError(phoneCheck.error ?? 'Enter a valid Pakistani mobile number (+923XXXXXXXXX).');
       return;
     }
     setError(null);
     setSaving(true);
     try {
-      await safetyApi.addContact({ name: name.trim(), phone: phone.trim() });
+      await safetyApi.addContact({ name: name.trim(), phone: phoneCheck.normalized });
       setName('');
       setPhone('');
       setShowAdd(false);
+      showToast({ title: 'Contact added', message: `${name.trim()} saved as trusted contact.` });
       load();
     } catch (err) {
       setError(getApiError(err, 'Could not add trusted contact.'));
@@ -66,21 +75,22 @@ export function TrustedContactsScreen({ navigation }: Props) {
   };
 
   const handleDelete = (c: ContactRead) => {
-    Alert.alert('Remove contact?', `Remove ${c.name} from your emergency contacts?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await safetyApi.deleteContact(c.id);
-            load();
-          } catch (err) {
-            setError(getApiError(err, 'Could not delete contact.'));
-          }
-        },
+    showConfirm({
+      title: 'Remove contact?',
+      message: `Remove ${c.name} (${c.phone}) from your emergency contacts?`,
+      confirmLabel: 'Remove',
+      cancelLabel: 'Cancel',
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          await safetyApi.deleteContact(c.id);
+          showToast({ title: 'Contact removed', tone: 'info' });
+          load();
+        } catch (err) {
+          setError(getApiError(err, 'Could not delete contact.'));
+        }
       },
-    ]);
+    });
   };
 
   return (
@@ -116,17 +126,21 @@ export function TrustedContactsScreen({ navigation }: Props) {
             <Text style={styles.name}>Add trusted contact</Text>
             <Field label="Name" value={name} onChangeText={setName} placeholder="e.g., Mother" />
             <Field
-              label="Phone number"
+              label="Pakistani mobile number"
               value={phone}
               onChangeText={setPhone}
-              placeholder="03001234567"
+              placeholder="+923001234567"
               keyboardType="phone-pad"
+              helper="Must start with +923 or 03 (e.g. +923001234567)"
             />
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <Button
                 small
                 variant="secondary"
-                onPress={() => setShowAdd(false)}
+                onPress={() => {
+                  setError(null);
+                  setShowAdd(false);
+                }}
                 style={{ flex: 1 }}
               >
                 Cancel

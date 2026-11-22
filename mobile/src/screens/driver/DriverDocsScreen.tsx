@@ -1,9 +1,10 @@
 import React from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { UploadFileAsset } from '../../api';
+import { useDialog } from '../../components/DialogProvider';
 import { Badge, Button, Footer, Icon, Screen, TopBar } from '../../components/ui';
 import { useRideFlow, type DriverDocDraft } from '../../context/RideFlowContext';
 import { colors, radii } from '../../theme';
@@ -14,6 +15,7 @@ type DocKey = keyof DriverDocDraft;
 
 export function DriverDocsScreen({ navigation, route }: Props) {
   const { driverDocs, setDriverDocs } = useRideFlow();
+  const { showAlert, showOptions } = useDialog();
   const resubmitVehicleId = route.params?.resubmitVehicleId;
 
   const setDoc = (key: DocKey, asset: UploadFileAsset) => {
@@ -25,7 +27,11 @@ export function DriverDocsScreen({ navigation, route }: Props) {
       if (useCamera) {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
         if (!perm.granted) {
-          Alert.alert('Permission required', 'Camera permission is needed to capture documents.');
+          showAlert({
+            title: 'Permission required',
+            message: 'Camera permission is needed to capture documents.',
+            tone: 'warning',
+          });
           return;
         }
         const res = await ImagePicker.launchCameraAsync({
@@ -48,7 +54,11 @@ export function DriverDocsScreen({ navigation, route }: Props) {
         if (!res.canceled && res.assets[0]) {
           const a = res.assets[0];
           if (a.size && a.size > 5 * 1024 * 1024) {
-            Alert.alert('File too large', 'Please choose a file smaller than 5 MB.');
+            showAlert({
+              title: 'File too large',
+              message: 'Please choose a file smaller than 5 MB.',
+              tone: 'warning',
+            });
             return;
           }
           setDoc(key, {
@@ -59,16 +69,23 @@ export function DriverDocsScreen({ navigation, route }: Props) {
         }
       }
     } catch {
-      Alert.alert('Upload error', 'Could not select document. Please try again.');
+      showAlert({
+        title: 'Upload error',
+        message: 'Could not select document. Please try again.',
+        tone: 'danger',
+      });
     }
   };
 
   const promptPick = (key: DocKey, label: string) => {
-    Alert.alert(`Upload ${label}`, 'Choose source', [
-      { text: 'Camera', onPress: () => pickFile(key, true) },
-      { text: 'Files / Gallery', onPress: () => pickFile(key, false) },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    showOptions({
+      title: `Upload ${label}`,
+      message: 'Choose how you want to add this document.',
+      options: [
+        { label: 'Take Photo with Camera', onPress: () => pickFile(key, true) },
+        { label: 'Choose from Files / Gallery', onPress: () => pickFile(key, false) },
+      ],
+    });
   };
 
   const items: { key: DocKey; title: string; sub: string }[] = [

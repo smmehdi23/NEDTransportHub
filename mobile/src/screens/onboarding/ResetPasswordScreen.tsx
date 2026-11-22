@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { authApi, getApiError } from '../../api';
+import { useDialog } from '../../components/DialogProvider';
 import { Button, ErrorBanner, Field, Footer, Icon, Screen, TopBar } from '../../components/ui';
 import { colors, radii } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
@@ -10,6 +11,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ResetPassword'>;
 
 export function ResetPasswordScreen({ navigation, route }: Props) {
   const { email, otp } = route.params;
+  const { showToast } = useDialog();
   const [pw, setPw] = useState('');
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,7 +31,11 @@ export function ResetPasswordScreen({ navigation, route }: Props) {
     setLoading(true);
     try {
       await authApi.resetPassword({ email, otp, new_password: pw });
-      Alert.alert('Password updated', 'Please sign in with your new password.');
+      showToast({
+        title: 'Password updated',
+        message: 'Please sign in with your new password.',
+        tone: 'success',
+      });
       navigation.reset({
         index: 0,
         routes: [{ name: 'Login', params: { email } }],

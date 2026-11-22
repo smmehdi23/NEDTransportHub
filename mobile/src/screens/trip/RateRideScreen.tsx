@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   StyleSheet,
   Text,
   TextInput,
@@ -10,6 +9,7 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getApiError, ratingsApi, type PendingRatingPerson } from '../../api';
+import { useDialog } from '../../components/DialogProvider';
 import { Avatar, Button, ErrorBanner, Footer, Icon, Screen, TopBar } from '../../components/ui';
 import { colors, radii } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
@@ -21,6 +21,7 @@ const TAGS = ['On time', 'Safe driving', 'Clean car', 'Friendly', 'Good music', 
 
 export function RateRideScreen({ navigation, route }: Props) {
   const { rideId } = route.params;
+  const { showToast } = useDialog();
   const [people, setPeople] = useState<PendingRatingPerson[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [score, setScore] = useState(5);
@@ -68,7 +69,11 @@ export function RateRideScreen({ navigation, route }: Props) {
         setSelectedTags(['On time']);
         setNote('');
       } else {
-        Alert.alert('Thank you!', 'Your rating helps keep NED Transport Hub safe and reliable.');
+        showToast({
+          title: 'Thank you!',
+          message: 'Your rating helps keep NED Transport Hub safe and reliable.',
+          tone: 'success',
+        });
         navigation.navigate('MainTabs', { screen: 'HomeTab' });
       }
     } catch (err) {

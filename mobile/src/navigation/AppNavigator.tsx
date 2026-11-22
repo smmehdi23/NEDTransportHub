@@ -1,11 +1,23 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { createNavigationContainerRef, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Icon, type IconName } from '../components/ui';
+import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme';
 import type { MainTabParamList, RootStackParamList } from './types';
+
+const navigationRef = createNavigationContainerRef<RootStackParamList>();
+const PUBLIC_ROUTES = new Set([
+  'Splash',
+  'Welcome',
+  'Login',
+  'Signup',
+  'OtpVerify',
+  'ForgotPassword',
+  'ResetPassword',
+]);
 
 // Onboarding
 import { SplashScreen } from '../screens/onboarding/SplashScreen';
@@ -131,8 +143,19 @@ function MainTabs() {
 }
 
 export function AppNavigator() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (isLoading || isAuthenticated) return;
+    if (!navigationRef.isReady()) return;
+    const current = navigationRef.getCurrentRoute()?.name;
+    if (current && !PUBLIC_ROUTES.has(current)) {
+      navigationRef.reset({ index: 0, routes: [{ name: 'Login' }] });
+    }
+  }, [isAuthenticated, isLoading]);
+
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         initialRouteName="Splash"
         screenOptions={{
