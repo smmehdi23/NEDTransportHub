@@ -3,7 +3,7 @@ import { adminApi, type AdminUser } from '../api';
 import { Badge, BrandMark, Button, Icon } from '../ui';
 
 export function LoginPage({ onSuccess }: { onSuccess: (admin: AdminUser) => void }) {
-  const [email, setEmail] = useState('admin@neduet.edu.pk');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

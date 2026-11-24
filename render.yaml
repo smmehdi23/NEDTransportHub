@@ -21,7 +21,7 @@ services:
       - key: PUBLIC_BASE_URL
         value: "https://ned-transport-hub-api.onrender.com"
       - key: FIRST_ADMIN_EMAIL
-        value: "admin@neduet.edu.pk"
+        sync: false
       - key: FIRST_ADMIN_PASSWORD
         sync: false
       - key: FIRST_ADMIN_NAME
