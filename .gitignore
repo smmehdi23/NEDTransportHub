@@ -1,4 +1,5 @@
 # Secrets & environment files
+admin id pass.txt
 .env
 .env.*
 !.env.example
